@@ -2753,16 +2753,24 @@ function Messaging({ messages, setMessages, meId, meName, coaches, parents, t })
             <div>
               <div style={{ marginBottom: 16 }}>
                 <label style={{ fontSize: 12, color: t.textDim, fontWeight: 700, display: "block", marginBottom: 10 }}>المستلمون ({form.to.length})</label>
-                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                  <button onClick={() => selectGroup("all")} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #7C49A8", background: "rgba(124,73,168,.1)", color: "#C4B5FD", fontSize: 11, cursor: "pointer" }}>الكل 🌍</button>
-                  <button onClick={() => selectGroup("coach")} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #06B6D4", background: "rgba(6,182,212,.1)", color: "#67E8F9", fontSize: 11, cursor: "pointer" }}>كل المدربين 🏃‍♂️</button>
-                  <button onClick={() => selectGroup("parent")} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #10B981", background: "rgba(16,185,129,.1)", color: "#6EE7B7", fontSize: 11, cursor: "pointer" }}>كل أولياء الأمور 👨‍👩‍👧‍👦</button>
+                
+                {/* Section Filters */}
+                <div style={{ display: "flex", background: t.bg, borderRadius: 10, padding: 4, marginBottom: 12, border: `1px solid ${t.border}` }}>
+                  <button onClick={() => setFilterType("all")} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", background: filterType === "all" ? "#7C49A8" : "transparent", color: filterType === "all" ? "#fff" : t.textDim, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>الكل</button>
+                  <button onClick={() => setFilterType("coach")} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", background: filterType === "coach" ? "#06B6D4" : "transparent", color: filterType === "coach" ? "#fff" : t.textDim, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>المدربين</button>
+                  <button onClick={() => setFilterType("parent")} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", background: filterType === "parent" ? "#10B981" : "transparent", color: filterType === "parent" ? "#fff" : t.textDim, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>أولياء الأمور</button>
                 </div>
-                <div style={{ maxHeight: 150, overflowY: "auto", background: t.inputBg, borderRadius: 12, padding: 10, border: `1px solid ${t.border}` }}>
+
+                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                  <button onClick={() => selectGroup(filterType)} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${filterType === 'all' ? '#7C49A8' : filterType === 'coach' ? '#06B6D4' : '#10B981'}`, background: "transparent", color: t.text, fontSize: 10, cursor: "pointer", fontWeight: 600 }}>تحديد كل {filterType === "all" ? "القائمة" : filterType === "coach" ? "المدربين" : "أولياء الأمور"}</button>
+                  <button onClick={() => setForm(f => ({ ...f, to: [] }))} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${t.border}`, background: "transparent", color: t.textDim, fontSize: 10, cursor: "pointer" }}>إلغاء التحديد</button>
+                </div>
+
+                <div style={{ maxHeight: 180, overflowY: "auto", background: t.inputBg, borderRadius: 12, padding: 10, border: `1px solid ${t.border}` }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                    {allContacts.map(c => (
-                      <div key={c.id} onClick={() => toggleRecipient(c.id)} style={{ padding: "6px 10px", borderRadius: 8, background: form.to.includes(c.id) ? "rgba(124,73,168,.15)" : "transparent", border: `1px solid ${form.to.includes(c.id) ? "#7C49A8" : "transparent"}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-                        <div style={{ width: 14, height: 14, borderRadius: 4, border: "1px solid #7C49A8", display: "grid", placeItems: "center" }}>
+                    {allContacts.filter(c => filterType === "all" || c.type === filterType).map(c => (
+                      <div key={c.id} onClick={() => toggleRecipient(c.id)} style={{ padding: "8px 10px", borderRadius: 8, background: form.to.includes(c.id) ? "rgba(124,73,168,.12)" : "transparent", border: `1px solid ${form.to.includes(c.id) ? "#7C49A8" : "transparent"}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${form.to.includes(c.id) ? "#7C49A8" : t.border}`, display: "grid", placeItems: "center" }}>
                           {form.to.includes(c.id) && <div style={{ width: 8, height: 8, borderRadius: 2, background: "#7C49A8" }}/>}
                         </div>
                         <span style={{ color: form.to.includes(c.id) ? t.text : t.textDim }}>{c.name}</span>
