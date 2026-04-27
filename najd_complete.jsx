@@ -701,7 +701,10 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
 
 /* ═══ ROOT APP ════════════════════════════════════════ */
 export default function App() {
-  const [user, setUser]         = useState(null);
+  const [user, setUser]         = useState(() => {
+    const saved = localStorage.getItem('najd_logged_user');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [theme, setTheme]       = useState("dark");
   const [attendance, setAttendance] = useState([]);
   const [evals, setEvals] = useState([]);
@@ -2048,6 +2051,7 @@ function CoachPlayers({ myPlayers, group, evals, t }) {
   if (sel) {
     const p  = myPlayers.find(x => x.id === sel);
     const pe = evals.filter(e => e.playerId === p.id).slice(-3);
+    const lastEval = evals.filter(e => e.playerId === p.id).slice(-1)[0];
     return (
       <div>
         <button onClick={() => setSel(null)} style={{ background: t.bg2, border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", marginBottom: 18, fontFamily: "'Cairo',sans-serif" }}>← رجوع</button>
@@ -2072,20 +2076,18 @@ function CoachPlayers({ myPlayers, group, evals, t }) {
               <SkillBar label="التقنية"       val={p.technique} color="#7C49A8" t={t}/>
               <SkillBar label="العمل الجماعي" val={p.teamwork}  color="#F59E0B" t={t}/>
             </Card>
-            {pe.length > 0 && (
-              <Card t={t} style={{ padding: 20 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 14 }}>📝 آخر التقييمات</div>
-                {pe.map(e => (
-                  <div key={e.id} style={{ padding: "10px 0", borderBottom: `1px solid ${t.border}` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                      <div style={{ display: "flex", gap: 6 }}><Chip text={`سرعة ${e.speed}`} color="#06B6D4"/><Chip text={`تقنية ${e.technique}`} color="#7C49A8"/><Chip text={`فريق ${e.teamwork}`} color="#F59E0B"/></div>
-                      <span style={{ fontSize: 10, color: t.textDim }}>{e.date}</span>
-                    </div>
-                    {e.note && <div style={{ fontSize: 12, color: t.textDim, lineHeight: 1.6 }}>{e.note}</div>}
+            <Card t={t} style={{ padding: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 16 }}>📝 حالة التقييم</div>
+              {lastEval 
+                ? (
+                  <div>
+                    <div style={{ fontSize: 11, color: t.textDim, marginBottom: 8 }}>آخر تقييم بتاريخ: {lastEval.date}</div>
+                    <div style={{ fontSize: 14, color: t.textMid, lineHeight: 1.6 }}>{lastEval.note || "لا توجد ملاحظات إضافية."}</div>
                   </div>
-                ))}
-              </Card>
-            )}
+                )
+                : <div style={{ textAlign: "center", color: t.textFaint, padding: "20px 0", fontSize: 12 }}>لم يتم تقييم اللاعب بعد</div>
+              }
+            </Card>
           </div>
         </div>
       </div>
@@ -2359,22 +2361,27 @@ function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, 
         </div>
       </Card>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 18 }} className="s2">
-        <StatCard label="الأهداف"   counter={child.goals}         icon="⚽" color="#EF4444" t={t}/>
-        <StatCard label="التمريرات" counter={child.assists}       icon="🎯" color="#10B981" t={t}/>
-        <StatCard label="الحضور"    value={`${child.attendancePct}%`} counter={child.attendancePct} icon="📅" color="#7C49A8" t={t}/>
-        <StatCard label="الاشتراك"  value={monthPaid ? "مدفوع ✅" : "متأخر ⚠️"} icon="💳" color={monthPaid ? "#10B981" : "#EF4444"} t={t}/>
+        <StatCard label="الأهداف"   counter={child.goals || 0}         icon="⚽" color="#EF4444" t={t}/>
+        <StatCard label="التمريرات" counter={child.assists || 0}       icon="🎯" color="#10B981" t={t}/>
+        <StatCard label="الحضور"    counter={child.attendancePct ? `${child.attendancePct}%` : "—"} icon="📅" color="#7C49A8" t={t}/>
+        <StatCard label="التقييم"   counter={child.score || "—"}       icon="⭐" color="#F59E0B" t={t}/>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }} className="s3">
-        {lastEval && (
-          <Card t={t} style={{ padding: 22 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 14 }}>📝 آخر تقييم من المدرب</div>
-            <div style={{ fontSize: 11, color: t.textDim, marginBottom: 12 }}>{lastEval.date} · {childCoach?.name}</div>
-            <SkillBar label="السرعة" val={lastEval.speed} color="#06B6D4" t={t}/>
-            <SkillBar label="التقنية" val={lastEval.technique} color="#7C49A8" t={t}/>
-            <SkillBar label="العمل الجماعي" val={lastEval.teamwork} color="#F59E0B" t={t}/>
-            {lastEval.note && <div style={{ background: t.bg, borderRadius: 8, padding: "10px 12px", fontSize: 12, color: t.textDim, lineHeight: 1.7, marginTop: 10 }}>"{lastEval.note}"</div>}
-          </Card>
-        )}
+        <Card t={t} style={{ padding: 22 }}>
+          <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 14 }}>📝 حالة التقييم</div>
+          {lastEval 
+            ? (
+              <div>
+                <div style={{ fontSize: 11, color: t.textDim, marginBottom: 12 }}>آخر تقييم بتاريخ: {lastEval.date} · {childCoach?.name}</div>
+                <SkillBar label="السرعة" val={lastEval.speed} color="#06B6D4" t={t}/>
+                <SkillBar label="التقنية" val={lastEval.technique} color="#7C49A8" t={t}/>
+                <SkillBar label="العمل الجماعي" val={lastEval.teamwork} color="#F59E0B" t={t}/>
+                {lastEval.note && <div style={{ background: t.bg, borderRadius: 8, padding: "10px 12px", fontSize: 12, color: t.textDim, lineHeight: 1.7, marginTop: 10 }}>"{lastEval.note}"</div>}
+              </div>
+            )
+            : <div style={{ textAlign: "center", color: t.textFaint, padding: "40px 0", fontSize: 13 }}>لم يتم تقييم اللاعب بعد من قبل المدرب.</div>
+          }
+        </Card>
         <Card t={t} style={{ padding: 22 }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 14 }}>💰 ملخص المدفوعات</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: "#10B981", marginBottom: 4 }}>{fmtMoney(totalPaid)}</div>
@@ -2687,7 +2694,8 @@ function Messaging({ messages, setMessages, meId, meName, coaches, parents, t, r
 
   if (role === "parent") {
     // Parent can only message Admin and their child's Coach
-    filteredContacts = filteredContacts.filter(c => c.type === "admin" || (c.type === "coach" && myCoachIds?.includes(c.id)));
+    const safeCoachIds = myCoachIds || [];
+    filteredContacts = filteredContacts.filter(c => c.type === "admin" || (c.type === "coach" && safeCoachIds.includes(c.id)));
   } else if (role === "coach") {
     // Coach can message Admin and Parents in their group
     // Find all parents of players in my group
