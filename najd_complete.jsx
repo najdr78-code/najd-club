@@ -703,47 +703,17 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
 export default function App() {
   const [user, setUser]         = useState(null);
   const [theme, setTheme]       = useState("dark");
-  const [attendance, setAttendance] = useState(() => {
-    const saved = localStorage.getItem('najd_attendance');
-    return saved ? JSON.parse(saved) : INIT_ATTENDANCE;
-  });
-  const [evals, setEvals] = useState(() => {
-    const saved = localStorage.getItem('najd_evals');
-    return saved ? JSON.parse(saved) : INIT_EVALS;
-  });
-  const [messages, setMessages] = useState(() => {
-    const saved = localStorage.getItem('najd_messages');
-    return saved ? JSON.parse(saved) : INIT_MESSAGES;
-  });
-  const [prices, setPrices] = useState(() => {
-    const saved = localStorage.getItem('najd_prices');
-    return saved ? JSON.parse(saved) : PRICE_LIST;
-  });
-  const [trainings, setTrainings] = useState(() => {
-    const saved = localStorage.getItem('najd_trainings');
-    return saved ? JSON.parse(saved) : INIT_TRAININGS;
-  });
-  const [coachesAttendance, setCoachesAttendance] = useState(() => {
-    const saved = localStorage.getItem('najd_coachesAttendance');
-    return saved ? JSON.parse(saved) : INIT_COACH_ATTENDANCE;
-  });
+  const [attendance, setAttendance] = useState([]);
+  const [evals, setEvals] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [prices, setPrices] = useState(PRICE_LIST);
+  const [trainings, setTrainings] = useState([]);
+  const [coachesAttendance, setCoachesAttendance] = useState([]);
 
-  const [groups, setGroups] = useState(() => {
-    const saved = localStorage.getItem('najd_groups');
-    return saved ? JSON.parse(saved) : INIT_GROUPS;
-  });
-  const [coaches, setCoaches] = useState(() => {
-    const saved = localStorage.getItem('najd_coaches');
-    return saved ? JSON.parse(saved) : INIT_COACHES;
-  });
-  const [players, setPlayers] = useState(() => {
-    const saved = localStorage.getItem('najd_players');
-    return saved ? JSON.parse(saved) : INIT_PLAYERS;
-  });
-  const [payments, setPayments] = useState(() => {
-    const saved = localStorage.getItem('najd_payments');
-    return saved ? JSON.parse(saved) : INIT_PAYMENTS;
-  });
+  const [groups, setGroups] = useState([]);
+  const [coaches, setCoaches] = useState([]);
+  const [players, setPlayers] = useState([]);
+  const [payments, setPayments] = useState([]);
 
   // Fetch from API if configured
   useEffect(() => {
