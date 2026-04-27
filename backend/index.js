@@ -91,9 +91,19 @@ app.post('/api/payments', async (req, res) => {
   res.json(payment);
 });
 
+// Save Attendance
 app.post('/api/attendance', async (req, res) => {
-  const att = await prisma.attendance.create({ data: req.body });
-  res.json(att);
+  try {
+    const a = req.body;
+    const att = await prisma.attendance.upsert({
+      where: { id: a.id },
+      update: { records: a.records },
+      create: { id: a.id, date: new Date(a.date), groupId: a.groupId, coachId: a.coachId, records: a.records }
+    });
+    res.json(att);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/messages', async (req, res) => {

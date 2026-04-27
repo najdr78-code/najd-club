@@ -784,8 +784,62 @@ export default function App() {
     }
   }, [players, coaches, groups, payments, attendance, coachesAttendance, evals, messages, prices, trainings]);
 
-  const t = THEMES[theme];
-  const shared = { groups, setGroups, coaches, setCoaches, players, setPlayers, parents: INIT_PARENTS, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, setEvals, messages, setMessages, prices, setPrices, trainings, setTrainings, t };
+  const shared = { 
+    groups, setGroups, 
+    coaches, setCoaches, 
+    players, 
+    setPlayers: (val) => {
+      if (typeof val === 'function') {
+        setPlayers(prev => {
+          const next = val(prev);
+          // Sync new/updated players to cloud if API exists
+          if (API_URL) {
+            const added = next.filter(p => !prev.find(x => x.id === p.id));
+            const updated = next.filter(p => prev.find(x => x.id === p.id && JSON.stringify(x) !== JSON.stringify(p)));
+            [...added, ...updated].forEach(p => {
+              fetch(`${API_URL}/api/players`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(p)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setPlayers(val);
+      }
+    },
+    parents: INIT_PARENTS, 
+    payments, setPayments, 
+    attendance, 
+    setAttendance: (val) => {
+      if (typeof val === 'function') {
+        setAttendance(prev => {
+          const next = val(prev);
+          if (API_URL) {
+            const changed = next.filter(a => !prev.find(x => x.id === a.id && JSON.stringify(x) === JSON.stringify(a)));
+            changed.forEach(a => {
+              fetch(`${API_URL}/api/attendance`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(a)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setAttendance(val);
+      }
+    },
+    coachesAttendance, setCoachesAttendance, 
+    evals, setEvals, 
+    messages, setMessages, 
+    prices, setPrices, 
+    trainings, setTrainings, 
+    t 
+  };
 
   return (
     <div style={{ fontFamily: "'Cairo',sans-serif", direction: "rtl", background: t.bg, minHeight: "100vh", color: t.text }}>
