@@ -784,6 +784,8 @@ export default function App() {
     }
   }, [players, coaches, groups, payments, attendance, coachesAttendance, evals, messages, prices, trainings]);
 
+  const t = THEMES[theme];
+
   const shared = { 
     groups, setGroups, 
     coaches, setCoaches, 
