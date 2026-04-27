@@ -4,7 +4,7 @@ import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, X
 /* ═══ SETTINGS ════════════════════════════════════════ */
 // قم بحفظ صورة الشعار في مجلد المشروع باسم logo.png
 const LOGO_URL = "/logo.png"; 
-const API_URL = ""; // اتركها فارغة للعمل محلياً، أو أضف رابط Railway (مثل https://backend-production.up.railway.app)
+const API_URL = "https://najd-club-production.up.railway.app"; // الرابط الفعلي للسيرفر على Railway
 
 /* ═══ LOGO ═══════════════════════════════════════════ */
 const NajdLogo = ({ size = 48 }) => {
