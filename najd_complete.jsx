@@ -722,7 +722,19 @@ export default function App() {
         try {
           const res = await fetch(`${API_URL}/api/initial-data`);
           const data = await res.json();
-          if (data.players) setPlayers(data.players);
+          if (data.players) {
+            // Auto-repair missing logins/data for display
+            const repaired = data.players.map(p => {
+              if (p.email && p.password) return p;
+              const phone = p.phone || "0500000000";
+              return { 
+                ...p, 
+                email: p.email || `najd_${phone}@najd.sa`,
+                password: p.password || `najd_${phone.slice(-4)}`
+              };
+            });
+            setPlayers(repaired);
+          }
           if (data.coaches) setCoaches(data.coaches);
           if (data.groups) setGroups(data.groups);
           if (data.payments) setPayments(data.payments);
@@ -1384,7 +1396,7 @@ function AdminPlayers({ players, setPlayers, groups, parents, t }) {
               <div style={{ fontWeight: 800, fontSize: 15, marginTop: 12, marginBottom: 6, color: t.text }}>{p.name}</div>
               <Chip text={p.position} color={g?.color || "#7C49A8"}/>
             </div>
-            {[["العمر", `${p.age} سنة`], ["الطول", `${p.height} سم`], ["الوزن", `${p.weight} كجم`], ["الأهداف", p.goals], ["التمريرات", p.assists], ["الحضور", `${p.attendancePct}%`], ["المجموعة", g?.name || "—"], ["ولي الأمر", par?.name || "—"], ["الإيميل", p.email || "—"], ["كلمة المرور", p.password || "—"]].map(([k, v]) => (
+            {[["العمر", `${p.age || '—'} سنة`], ["الطول", `${p.height || '—'} سم`], ["الوزن", `${p.weight || '—'} كجم`], ["الأهداف", p.goals || 0], ["التمريرات", p.assists || 0], ["الحضور", `${p.attendancePct || 0}%`], ["المجموعة", g?.name || "—"], ["ولي الأمر", par?.name || "—"], ["الإيميل", p.email || "—"], ["كلمة المرور", p.password || "—"]].map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${t.border}`, fontSize: 12 }}>
                 <span style={{ color: t.textDim }}>{k}</span>
                 <span style={{ fontWeight: 600, color: k === "كلمة المرور" ? "#D8A435" : k === "الإيميل" ? "#06B6D4" : t.text, fontFamily: k === "كلمة المرور" ? "monospace" : undefined, fontSize: k === "كلمة المرور" ? 11 : 12 }}>{v}</span>
