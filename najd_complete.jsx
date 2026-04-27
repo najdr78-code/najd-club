@@ -794,7 +794,7 @@ export default function App() {
         setPlayers(val);
       }
     },
-    parents: INIT_PARENTS, 
+    parents: players.map(p => ({ id: p.parentId, name: `ولي أمر ${p.name}`, phone: p.phone, email: p.email })), 
     payments, setPayments, 
     attendance, 
     setAttendance: (val) => {
@@ -2278,12 +2278,30 @@ function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coac
 /* ══════════════════════════════════════════════════════════
    PARENT PORTAL
 ══════════════════════════════════════════════════════════ */
-function ParentPortal({ user, onLogout, players, groups, coaches, payments, attendance, evals, messages, setMessages, prices, trainings, t, loginUser }) {
-  const parent     = INIT_PARENTS.find(p => p.id === user.id) || loginUser;
-  const myPlayers  = players.filter(p => parent.playerIds?.includes(p.id) || p.email === loginUser?.email);
+function ParentPortal({ user, onLogout, players, groups, coaches, parents, payments, attendance, evals, messages, setMessages, prices, trainings, t }) {
+  // 1. Identify the parent from the dynamic parents list
+  const parent = parents.find(p => p.id === user.id) || { name: user.name, id: user.id };
+  
+  // 2. Filter players by parentId
+  const myPlayers = players.filter(p => p.parentId === user.id);
+  
   const [activeChild, setActiveChild] = useState(myPlayers[0]?.id);
   const [tab, setTab] = useState("overview");
   const unread = messages.filter(m => m.to === user.id && !m.read).length;
+  
+  const child      = myPlayers.find(p => p.id === activeChild) || myPlayers[0];
+  const childGroup = child ? groups.find(g => g.id === child.groupId) : null;
+  const childCoach = childGroup ? coaches.find(c => c.id === childGroup.coachId) : null;
+  const childPays  = child ? payments.filter(p => p.playerId === child.id) : [];
+  const childAtt   = child ? attendance.filter(a => a.groupId === child.groupId) : [];
+  const childEvals = child ? evals.filter(e => e.playerId === child.id) : [];
+
+  // My coaches: find all unique coaches of my children
+  const myCoachIds = [...new Set(myPlayers.map(p => {
+    const g = groups.find(x => x.id === p.groupId);
+    return g?.coachId;
+  }).filter(Boolean))];
+
   const tabs = [
     { id: "overview",   icon: "dashboard",  label: "الرئيسية"    },
     { id: "scores",     icon: "chart",      label: "الأداء"       },
@@ -2292,12 +2310,6 @@ function ParentPortal({ user, onLogout, players, groups, coaches, payments, atte
     { id: "schedule",   icon: "schedule",   label: "المواعيد"     },
     { id: "messages",   icon: "messages",   label: "الرسائل",      badge: unread || undefined },
   ];
-  const child      = myPlayers.find(p => p.id === activeChild) || myPlayers[0];
-  const childGroup = child ? groups.find(g => g.id === child.groupId) : null;
-  const childCoach = childGroup ? coaches.find(c => c.id === childGroup.coachId) : null;
-  const childPays  = child ? payments.filter(p => p.playerId === child.id) : [];
-  const childAtt   = child ? attendance.filter(a => a.groupId === child.groupId) : [];
-  const childEvals = child ? evals.filter(e => e.playerId === child.id) : [];
 
   return (
     <Shell title={`أهلاً، ${parent.name}`} subtitle="بوابة ولي الأمر" color="#10B981" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge="ولي أمر" user={user} t={t}>
@@ -2316,7 +2328,7 @@ function ParentPortal({ user, onLogout, players, groups, coaches, payments, atte
       {tab === "attendance" && <ParentAttendance child={child} childAtt={childAtt} t={t}/>}
       {tab === "payments"   && <ParentPayments child={child} childPays={childPays} prices={prices} t={t}/>}
       {tab === "schedule"   && <ParentSchedule childGroup={childGroup} childCoach={childCoach} trainings={trainings} t={t}/>}
-      {tab === "messages"   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={parent.name} coaches={coaches} parents={INIT_PARENTS} t={t}/>}
+      {tab === "messages"   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={parent.name} coaches={coaches} parents={parents} t={t} role="parent" myCoachIds={myCoachIds} />}
     </Shell>
   );
 }
@@ -2617,7 +2629,7 @@ const QUICK_TEMPLATES = [
   { label: "تقييم جديد", text: "تم تحديث التقييم الفني للاعب، يرجى الاطلاع عليه من لوحة التحكم." },
 ];
 
-function Messaging({ messages, setMessages, meId, meName, coaches, parents, t }) {
+function Messaging({ messages, setMessages, meId, meName, coaches, parents, t, role, myGroupId, myPlayerIds }) {
   const [compose, setCompose] = useState(false);
   const [form, setForm] = useState({ to: [], text: "", files: [] });
   const [filterType, setFilterType] = useState("all");
@@ -2650,17 +2662,40 @@ function Messaging({ messages, setMessages, meId, meName, coaches, parents, t })
       };
     });
 
+    if (API_URL) {
+      newMsgs.forEach(m => {
+        fetch(`${API_URL}/api/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(m)
+        }).catch(console.error);
+      });
+    }
+
     setMessages(ms => [...ms, ...newMsgs]);
     setForm({ to: [], text: "", files: [] });
     setCompose(false);
     alert("تم إرسال الرسائل بنجاح");
   };
 
-  const allContacts = [
+  // Role-based Contact Filtering
+  let filteredContacts = [
     { id: "admin", name: "الإدارة", type: "admin" },
-    ...coaches.map(c => ({ id: c.id, name: c.name, type: "coach" })),
+    ...coaches.map(c => ({ id: c.id, name: c.name, type: "coach", groupId: c.groupId })),
     ...parents.map(p => ({ id: p.id, name: p.name, type: "parent" })),
   ].filter(c => c.id !== meId);
+
+  if (role === "parent") {
+    // Parent can only message Admin and their child's Coach
+    filteredContacts = filteredContacts.filter(c => c.type === "admin" || (c.type === "coach" && myCoachIds?.includes(c.id)));
+  } else if (role === "coach") {
+    // Coach can message Admin and Parents in their group
+    // Find all parents of players in my group
+    const myGroupPlayerIds = players.filter(p => p.groupId === myGroupId).map(p => p.parentId);
+    filteredContacts = filteredContacts.filter(c => c.type === "admin" || (c.type === "parent" && myGroupPlayerIds.includes(c.id)));
+  }
+
+  const allContacts = filteredContacts;
 
   const toggleRecipient = (id) => {
     setForm(f => {
