@@ -716,7 +716,13 @@ export default function App() {
   const [groups, setGroups] = useState([]);
   const [coaches, setCoaches] = useState([]);
   const [players, setPlayers] = useState([]);
+  const [theme, setTheme]       = useState("dark");
   const [payments, setPayments] = useState([]);
+
+  useEffect(() => {
+    if (user) localStorage.setItem('najd_logged_user', JSON.stringify(user));
+    else localStorage.removeItem('najd_logged_user');
+  }, [user]);
 
   // Fetch from API if configured
   useEffect(() => {
@@ -1388,7 +1394,7 @@ function AdminPlayers({ players, setPlayers, groups, parents, t }) {
   if (sel) {
     const p   = players.find(x => x.id === sel);
     const g   = groups.find(x => x.id === p.groupId);
-    const par = parents.find(x => x.playerIds.includes(p.id));
+    const par = parents.find(x => x.id === p.parentId);
     return (
       <div>
         <button onClick={() => setSel(null)} style={{ background: t.bg2, border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", marginBottom: 18, fontFamily: "'Cairo',sans-serif" }}>← رجوع</button>
