@@ -76,14 +76,46 @@ app.get('/api/initial-data', async (req, res) => {
 });
 
 // --- Specific Update Routes ---
-app.post('/api/players/update', async (req, res) => {
-  const { id, ...data } = req.body;
-  const player = await prisma.player.upsert({
-    where: { id: id || 'new' },
-    update: data,
-    create: data
-  });
-  res.json(player);
+app.post('/api/players', async (req, res) => {
+  const p = req.body;
+  try {
+    // 1. Ensure a User exists for the parent login
+    const user = await prisma.user.upsert({
+      where: { email: p.email },
+      update: { password: p.password, name: `ولي أمر ${p.name}` },
+      create: { 
+        email: p.email, 
+        password: p.password, 
+        name: `ولي أمر ${p.name}`, 
+        role: 'PARENT' 
+      }
+    });
+
+    // 2. Ensure a Parent profile exists for that user
+    const parent = await prisma.parent.upsert({
+      where: { userId: user.id },
+      update: {},
+      create: { userId: user.id }
+    });
+
+    // 3. Create or update the Player record
+    const player = await prisma.player.upsert({
+      where: { id: p.id || 'new' },
+      update: { 
+        name: p.name, phone: p.phone, age: p.age, status: p.status, 
+        position: p.position, weight: p.weight, height: p.height, 
+        groupId: p.groupId, score: p.score, parentId: parent.id
+      },
+      create: {
+        id: p.id, name: p.name, phone: p.phone, age: p.age, 
+        status: p.status, position: p.position, weight: p.weight, 
+        height: p.height, groupId: p.groupId, parentId: parent.id
+      }
+    });
+    res.json(player);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/payments', async (req, res) => {
