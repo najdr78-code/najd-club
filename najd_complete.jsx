@@ -2628,71 +2628,204 @@ function ParentSchedule({ childGroup, childCoach, trainings, t }) {
 /* ══════════════════════════════════════════════════════════
    MESSAGING (shared)
 ══════════════════════════════════════════════════════════ */
+const QUICK_TEMPLATES = [
+  { label: "ترحيب", text: "أهلاً بك في نادي نجد الرياضي. يسعدنا انضمامكم إلينا." },
+  { label: "تذكير سداد", text: "نحيطكم علماً بضرورة سداد الرسوم الشهرية لضمان استمرارية التدريب." },
+  { label: "تأجيل تدريب", text: "نعتذر عن إلغاء تدريب اليوم لظروف طارئة، وسيتم التعويض في وقت لاحق." },
+  { label: "تقييم جديد", text: "تم تحديث التقييم الفني للاعب، يرجى الاطلاع عليه من لوحة التحكم." },
+];
+
 function Messaging({ messages, setMessages, meId, meName, coaches, parents, t }) {
   const [compose, setCompose] = useState(false);
-  const [form, setForm] = useState({ to: "", toName: "", text: "" });
+  const [form, setForm] = useState({ to: [], text: "", files: [] });
+  const [filterType, setFilterType] = useState("all");
+  
   const mine = messages.filter(m => m.from === meId || m.to === meId).slice().reverse();
   const markRead = id => setMessages(ms => ms.map(m => m.id === id ? { ...m, read: true } : m));
+
   const send = () => {
-    if (!form.to || !form.text.trim()) return;
-    setMessages(ms => [...ms, { id: `msg${Date.now()}`, from: meId, fromName: meName, to: form.to, toName: form.toName, text: form.text, date: new Date().toISOString().split("T")[0], read: false }]);
-    setForm({ to: "", toName: "", text: "" });
+    if (!form.to.length || !form.text.trim()) return;
+    
+    const newMsgs = form.to.map(targetId => {
+      let targetName = "";
+      if (targetId === "admin") targetName = "الإدارة";
+      else {
+        const c = coaches.find(x => x.id === targetId);
+        const p = parents.find(x => x.id === targetId);
+        targetName = c?.name || p?.name || "مستخدم";
+      }
+
+      return {
+        id: `msg${Date.now()}-${targetId}`,
+        from: meId,
+        fromName: meName,
+        to: targetId,
+        toName: targetName,
+        text: form.text,
+        files: form.files,
+        date: new Date().toISOString().split("T")[0],
+        read: false
+      };
+    });
+
+    setMessages(ms => [...ms, ...newMsgs]);
+    setForm({ to: [], text: "", files: [] });
     setCompose(false);
+    alert("تم إرسال الرسائل بنجاح");
   };
+
   const allContacts = [
-    { id: "admin", name: "الإدارة" },
-    ...coaches.map(c => ({ id: c.id, name: c.name })),
-    ...parents.map(p => ({ id: p.id, name: p.name })),
+    { id: "admin", name: "الإدارة", type: "admin" },
+    ...coaches.map(c => ({ id: c.id, name: c.name, type: "coach" })),
+    ...parents.map(p => ({ id: p.id, name: p.name, type: "parent" })),
   ].filter(c => c.id !== meId);
+
+  const toggleRecipient = (id) => {
+    setForm(f => {
+      const isSelected = f.to.includes(id);
+      return { ...f, to: isSelected ? f.to.filter(x => x !== id) : [...f.to, id] };
+    });
+  };
+
+  const selectGroup = (type) => {
+    const ids = allContacts.filter(c => type === "all" || c.type === type).map(c => c.id);
+    setForm(f => ({ ...f, to: ids }));
+  };
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div style={{ fontSize: 12, color: t.textDim }}>{mine.length} رسالة</div>
-        <Btn onClick={() => setCompose(true)}><AnimIcon type="messages" size={14} color="#fff"/> رسالة جديدة</Btn>
+        <Btn onClick={() => setCompose(true)} style={{ padding: "10px 22px", borderRadius: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ animation: "spin 3s linear infinite", display: "inline-block" }}>✉️</span>
+            <span>رسالة احترافية جديدة</span>
+          </div>
+        </Btn>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {mine.map((m, i) => {
           const isMe  = m.from === meId;
           const unread = m.to === meId && !m.read;
           return (
             <div key={m.id} onClick={() => unread && markRead(m.id)}
-              style={{ background: unread ? t.name === "dark" ? "#13111F" : "#F5F0FF" : t.bg2, border: `1px solid ${unread ? "rgba(124,73,168,.3)" : t.border}`, borderRadius: 14, padding: "16px 18px", cursor: unread ? "pointer" : "default", transition: "all .15s", animation: `fadeUp .3s ${i * .05}s ease both` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <Avatar name={isMe ? m.toName : m.fromName} size={30} color={isMe ? "#10B981" : "#7C49A8"}/>
+              style={{ background: unread ? t.name === "dark" ? "linear-gradient(135deg,#13111F,#0A0815)" : "#F5F0FF" : t.bg2, border: `1px solid ${unread ? "rgba(124,73,168,.4)" : t.border}`, borderRadius: 18, padding: "18px 22px", cursor: unread ? "pointer" : "default", transition: "all .2s", animation: `fadeUp .4s ${i * .05}s ease both`, boxShadow: unread ? "0 10px 25px rgba(124,73,168,.1)" : "none" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Avatar name={isMe ? m.toName : m.fromName} size={36} color={isMe ? "#10B981" : "#7C49A8"}/>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: isMe ? t.textDim : t.text }}>{isMe ? `إلى: ${m.toName}` : `من: ${m.fromName}`}</div>
-                    <div style={{ fontSize: 10, color: t.textFaint }}>{m.date}</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: isMe ? t.textDim : t.text }}>{isMe ? `إلى: ${m.toName}` : `من: ${m.fromName}`}</div>
+                    <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>{m.date}</div>
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  {isMe && <Chip text="أرسلته" color={t.textDim} size={10}/>}
-                  {unread && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#7C49A8", animation: "pulse 1.5s infinite" }}/>}
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {isMe && <Chip text="مُرسلة" color={t.textFaint} size={10}/>}
+                  {unread && <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#7C49A8", animation: "pulse 2s infinite" }}/>}
                 </div>
               </div>
-              <div style={{ fontSize: 13, color: t.textMid, lineHeight: 1.7, background: t.bg, borderRadius: 8, padding: "10px 14px" }}>{m.text}</div>
+              <div style={{ fontSize: 14, color: t.textMid, lineHeight: 1.8, background: t.bg, borderRadius: 12, padding: "14px 18px", border: `1px solid ${t.border}` }}>
+                {m.text}
+                {m.files?.length > 0 && (
+                  <div style={{ marginTop: 12, borderTop: `1px solid ${t.border}`, paddingTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {m.files.map((f, fi) => (
+                      <div key={fi} style={{ background: t.bg2, padding: "6px 12px", borderRadius: 8, fontSize: 11, border: `1px solid ${t.border}`, display: "flex", alignItems: "center", gap: 6 }}>
+                        📎 {f.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
-        {mine.length === 0 && <div style={{ padding: 60, textAlign: "center", color: t.textFaint }}>لا توجد رسائل</div>}
+        {mine.length === 0 && (
+          <div style={{ padding: 80, textAlign: "center", color: t.textFaint }}>
+            <div style={{ fontSize: 40, marginBottom: 15, animation: "float 3s infinite" }}>📨</div>
+            <div>صندوق الوارد فارغ حالياً</div>
+          </div>
+        )}
       </div>
+
       {compose && (
-        <Modal title="✉️ رسالة جديدة" onClose={() => setCompose(false)} t={t}>
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 11, color: t.textDim, fontWeight: 600, display: "block", marginBottom: 6 }}>إلى</label>
-            <select value={form.to} onChange={e => { const c = allContacts.find(x => x.id === e.target.value); setForm(f => ({ ...f, to: e.target.value, toName: c?.name || "" })); }}
-              style={{ width: "100%", background: t.inputBg, border: `1px solid ${t.border2}`, borderRadius: 9, padding: "10px 12px", color: t.text, fontSize: 13, outline: "none", fontFamily: "'Cairo',sans-serif" }}>
-              <option value="">اختر المستقبل</option>
-              {allContacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+        <Modal title="✉️ إنشاء رسالة ذكية" onClose={() => setCompose(false)} wide t={t}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 20 }}>
+            <div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, color: t.textDim, fontWeight: 700, display: "block", marginBottom: 10 }}>المستلمون ({form.to.length})</label>
+                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                  <button onClick={() => selectGroup("all")} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #7C49A8", background: "rgba(124,73,168,.1)", color: "#C4B5FD", fontSize: 11, cursor: "pointer" }}>الكل 🌍</button>
+                  <button onClick={() => selectGroup("coach")} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #06B6D4", background: "rgba(6,182,212,.1)", color: "#67E8F9", fontSize: 11, cursor: "pointer" }}>كل المدربين 🏃‍♂️</button>
+                  <button onClick={() => selectGroup("parent")} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #10B981", background: "rgba(16,185,129,.1)", color: "#6EE7B7", fontSize: 11, cursor: "pointer" }}>كل أولياء الأمور 👨‍👩‍👧‍👦</button>
+                </div>
+                <div style={{ maxHeight: 150, overflowY: "auto", background: t.inputBg, borderRadius: 12, padding: 10, border: `1px solid ${t.border}` }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                    {allContacts.map(c => (
+                      <div key={c.id} onClick={() => toggleRecipient(c.id)} style={{ padding: "6px 10px", borderRadius: 8, background: form.to.includes(c.id) ? "rgba(124,73,168,.15)" : "transparent", border: `1px solid ${form.to.includes(c.id) ? "#7C49A8" : "transparent"}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                        <div style={{ width: 14, height: 14, borderRadius: 4, border: "1px solid #7C49A8", display: "grid", placeItems: "center" }}>
+                          {form.to.includes(c.id) && <div style={{ width: 8, height: 8, borderRadius: 2, background: "#7C49A8" }}/>}
+                        </div>
+                        <span style={{ color: form.to.includes(c.id) ? t.text : t.textDim }}>{c.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                  <label style={{ fontSize: 12, color: t.textDim, fontWeight: 700 }}>نص الرسالة</label>
+                  <div style={{ fontSize: 10, color: t.textFaint }}>{form.text.length}/500</div>
+                </div>
+                <textarea value={form.text} onChange={e => setForm(f => ({ ...f, text: e.target.value }))} rows={5} placeholder="اكتب رسالتك هنا..."
+                  style={{ width: "100%", background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 14, padding: "14px 16px", color: t.text, fontSize: 14, resize: "none", outline: "none", fontFamily: "'Cairo',sans-serif", lineHeight: 1.6 }}/>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ fontSize: 12, color: t.textDim, fontWeight: 700, display: "block", marginBottom: 10 }}>المرفقات 📎</label>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {form.files.map((f, idx) => (
+                    <div key={idx} style={{ background: "rgba(124,73,168,.1)", padding: "8px 12px", borderRadius: 10, fontSize: 11, display: "flex", alignItems: "center", gap: 10 }}>
+                      <span>📄 {f.name}</span>
+                      <button onClick={() => setForm(f => ({ ...f, files: f.files.filter((_, i) => i !== idx) }))} style={{ border: "none", background: "none", color: "#EF4444", cursor: "pointer", fontWeight: 900 }}>✕</button>
+                    </div>
+                  ))}
+                  <label style={{ width: 40, height: 40, borderRadius: 10, background: t.bg2, border: `2px dashed ${t.border}`, display: "grid", placeItems: "center", cursor: "pointer", fontSize: 18 }}>
+                    +
+                    <input type="file" multiple style={{ display: "none" }} onChange={e => {
+                      const newFiles = Array.from(e.target.files).map(f => ({ name: f.name, size: f.size }));
+                      setForm(f => ({ ...f, files: [...f.files, ...newFiles] }));
+                    }} />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ borderRight: `1px solid ${t.border}`, paddingRight: 20 }}>
+              <div style={{ fontWeight: 800, fontSize: 13, color: "#7C49A8", marginBottom: 15, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ animation: "pulse 2s infinite" }}>⚡</span> رسائل جاهزة
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {QUICK_TEMPLATES.map((tmp, idx) => (
+                  <button key={idx} onClick={() => setForm(f => ({ ...f, text: tmp.text }))}
+                    style={{ textAlign: "right", padding: "12px 14px", borderRadius: 12, background: t.bg2, border: `1px solid ${t.border}`, color: t.textMid, fontSize: 11, cursor: "pointer", transition: "all .2s" }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = "#7C49A8"} onMouseLeave={e => e.currentTarget.style.borderColor = t.border}>
+                    <div style={{ fontWeight: 800, marginBottom: 4, color: "#7C49A8" }}>{tmp.label}</div>
+                    <div style={{ opacity: .7, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tmp.text}</div>
+                  </button>
+                ))}
+              </div>
+              <div style={{ marginTop: 25, background: "linear-gradient(135deg,rgba(216,164,53,.1),transparent)", padding: 15, borderRadius: 14, border: "1px solid rgba(216,164,53,.2)" }}>
+                <div style={{ fontSize: 11, color: "#D8A435", fontWeight: 800, marginBottom: 6 }}>💡 نصيحة الإدارة</div>
+                <div style={{ fontSize: 10, color: t.textDim, lineHeight: 1.6 }}>استخدام الرسائل الجاهزة يوفر الوقت ويضمن وصول المعلومة بشكل موحد ومهني.</div>
+              </div>
+            </div>
           </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 11, color: t.textDim, fontWeight: 600, display: "block", marginBottom: 6 }}>الرسالة</label>
-            <textarea value={form.text} onChange={e => setForm(f => ({ ...f, text: e.target.value }))} rows={4} placeholder="اكتب رسالتك..."
-              style={{ width: "100%", background: t.inputBg, border: `1px solid ${t.border2}`, borderRadius: 9, padding: "10px 12px", color: t.text, fontSize: 13, resize: "none", outline: "none", fontFamily: "'Cairo',sans-serif" }}/>
+
+          <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
+            <Btn onClick={send} style={{ flex: 1, height: 48, fontSize: 15 }}>إرسال الرسالة الآن 🚀</Btn>
+            <Btn variant="secondary" onClick={() => setCompose(false)} style={{ height: 48 }}>إلغاء</Btn>
           </div>
-          <div style={{ display: "flex", gap: 10 }}><Btn onClick={send} style={{ flex: 1 }}>إرسال 📤</Btn><Btn variant="secondary" onClick={() => setCompose(false)}>إلغاء</Btn></div>
         </Modal>
       )}
     </div>
