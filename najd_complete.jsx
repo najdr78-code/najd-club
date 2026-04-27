@@ -705,19 +705,18 @@ export default function App() {
     const saved = localStorage.getItem('najd_logged_user');
     return saved ? JSON.parse(saved) : null;
   });
-  const [theme, setTheme]       = useState("dark");
-  const [attendance, setAttendance] = useState([]);
-  const [evals, setEvals] = useState([]);
-  const [messages, setMessages] = useState([]);
-  const [prices, setPrices] = useState(PRICE_LIST);
-  const [trainings, setTrainings] = useState([]);
-  const [coachesAttendance, setCoachesAttendance] = useState([]);
+  const [attendance, setAttendance] = useState(() => JSON.parse(localStorage.getItem('najd_attendance') || '[]'));
+  const [evals, setEvals] = useState(() => JSON.parse(localStorage.getItem('najd_evals') || '[]'));
+  const [messages, setMessages] = useState(() => JSON.parse(localStorage.getItem('najd_messages') || '[]'));
+  const [prices, setPrices] = useState(() => JSON.parse(localStorage.getItem('najd_prices') || JSON.stringify(PRICE_LIST)));
+  const [trainings, setTrainings] = useState(() => JSON.parse(localStorage.getItem('najd_trainings') || '[]'));
+  const [coachesAttendance, setCoachesAttendance] = useState(() => JSON.parse(localStorage.getItem('najd_coachesAttendance') || '[]'));
 
-  const [groups, setGroups] = useState([]);
-  const [coaches, setCoaches] = useState([]);
-  const [players, setPlayers] = useState([]);
-  const [theme, setTheme]       = useState("dark");
-  const [payments, setPayments] = useState([]);
+  const [groups, setGroups] = useState(() => JSON.parse(localStorage.getItem('najd_groups') || '[]'));
+  const [coaches, setCoaches] = useState(() => JSON.parse(localStorage.getItem('najd_coaches') || '[]'));
+  const [players, setPlayers] = useState(() => JSON.parse(localStorage.getItem('najd_players') || '[]'));
+  const [payments, setPayments] = useState(() => JSON.parse(localStorage.getItem('najd_payments') || '[]'));
+  const [theme, setTheme] = useState(() => localStorage.getItem('najd_theme') || "dark");
 
   useEffect(() => {
     if (user) localStorage.setItem('najd_logged_user', JSON.stringify(user));
@@ -761,19 +760,18 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!API_URL) {
-      localStorage.setItem('najd_players', JSON.stringify(players));
-      localStorage.setItem('najd_coaches', JSON.stringify(coaches));
-      localStorage.setItem('najd_groups', JSON.stringify(groups));
-      localStorage.setItem('najd_payments', JSON.stringify(payments));
-      localStorage.setItem('najd_attendance', JSON.stringify(attendance));
-      localStorage.setItem('najd_coachesAttendance', JSON.stringify(coachesAttendance));
-      localStorage.setItem('najd_evals', JSON.stringify(evals));
-      localStorage.setItem('najd_messages', JSON.stringify(messages));
-      localStorage.setItem('najd_prices', JSON.stringify(prices));
-      localStorage.setItem('najd_trainings', JSON.stringify(trainings));
-    }
-  }, [players, coaches, groups, payments, attendance, coachesAttendance, evals, messages, prices, trainings]);
+    localStorage.setItem('najd_players', JSON.stringify(players));
+    localStorage.setItem('najd_coaches', JSON.stringify(coaches));
+    localStorage.setItem('najd_groups', JSON.stringify(groups));
+    localStorage.setItem('najd_payments', JSON.stringify(payments));
+    localStorage.setItem('najd_attendance', JSON.stringify(attendance));
+    localStorage.setItem('najd_coachesAttendance', JSON.stringify(coachesAttendance));
+    localStorage.setItem('najd_evals', JSON.stringify(evals));
+    localStorage.setItem('najd_messages', JSON.stringify(messages));
+    localStorage.setItem('najd_prices', JSON.stringify(prices));
+    localStorage.setItem('najd_trainings', JSON.stringify(trainings));
+    localStorage.setItem('najd_theme', theme);
+  }, [players, coaches, groups, payments, attendance, coachesAttendance, evals, messages, prices, trainings, theme]);
 
   const t = THEMES[theme];
 
@@ -1041,6 +1039,10 @@ function AdminTeams({ groups, setGroups, coaches, players, t }) {
 
   if (selGroup) {
     const g = groups.find(x => x.id === selGroup);
+    if (!g) {
+      setTimeout(() => setSelGroup(null), 0);
+      return <div style={{ padding: 40, textAlign: "center", color: t.textDim }}>جاري تحميل بيانات الفريق...</div>;
+    }
     const coach = coaches.find(c => c.id === g?.coachId);
     const gPlayers = players.filter(p => p.groupId === selGroup);
     return (
@@ -1229,6 +1231,10 @@ function AdminCoaches({ coaches, setCoaches, groups, players, payments, t }) {
 
   if (sel) {
     const c = coaches.find(x => x.id === sel);
+    if (!c) { 
+      setTimeout(() => setSel(null), 0);
+      return <div style={{ padding: 40, textAlign: "center", color: t.textDim }}>جاري تحميل بيانات المدرب...</div>;
+    }
     const g = groups.find(x => x.id === c.groupId);
     const cPays = payments.filter(p => p.coachId === c.id);
     const rev = cPays.reduce((a, p) => a + p.amount, 0);
@@ -1393,6 +1399,10 @@ function AdminPlayers({ players, setPlayers, groups, parents, t }) {
 
   if (sel) {
     const p   = players.find(x => x.id === sel);
+    if (!p) { 
+      setTimeout(() => setSel(null), 0);
+      return <div style={{ padding: 40, textAlign: "center", color: t.textDim }}>جاري تحميل بيانات اللاعب...</div>;
+    }
     const g   = groups.find(x => x.id === p.groupId);
     const par = parents.find(x => x.id === p.parentId);
     return (
@@ -2294,6 +2304,12 @@ function ParentPortal({ user, onLogout, players, groups, coaches, parents, payme
   const myPlayers = players.filter(p => p.parentId === user.id);
   
   const [activeChild, setActiveChild] = useState(myPlayers[0]?.id);
+
+  useEffect(() => {
+    if (!activeChild && myPlayers.length > 0) {
+      setActiveChild(myPlayers[0].id);
+    }
+  }, [myPlayers, activeChild]);
   const [tab, setTab] = useState("overview");
   const unread = messages.filter(m => m.to === user.id && !m.read).length;
   
