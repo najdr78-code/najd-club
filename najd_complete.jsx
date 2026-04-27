@@ -612,13 +612,13 @@ function LoginPage({ onLogin, players = [], coaches = [], t }) {
 
       <div style={{ position: "relative", zIndex: 1, width: "min(430px,100%)" }}>
         <div style={{ textAlign: "center", marginBottom: 32, animation: "fadeUp .6s ease both" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 88, height: 88, borderRadius: 24, background: "linear-gradient(135deg,rgba(124,73,168,.14),rgba(124,73,168,.04))", border: "1px solid rgba(124,73,168,.3)", marginBottom: 16, boxShadow: "0 0 40px rgba(124,73,168,.18)" }}>
-            <NajdLogo size={62} />
+          <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 110, height: 110, borderRadius: 28, background: "linear-gradient(135deg,rgba(124,73,168,.14),rgba(124,73,168,.04))", border: "1px solid rgba(124,73,168,.3)", marginBottom: 16, boxShadow: "0 0 40px rgba(124,73,168,.18)" }}>
+            <NajdLogo size={85} />
           </div>
-          <h1 style={{ fontSize: 28, fontWeight: 900, color: "#fff", marginBottom: 6, letterSpacing: "-.02em" }}>
+          <h1 style={{ fontSize: 32, fontWeight: 900, color: "#fff", marginBottom: 6, letterSpacing: "-.02em" }}>
             نادي <span style={{ color: "#D8A435" }}>نجد</span> الرياض
           </h1>
-          <p style={{ fontSize: 13, color: "#5A4E8A" }}>أكاديمية كرة القدم — بوابة الدخول الموحدة</p>
+          <p style={{ fontSize: 14, color: "#5A4E8A", fontWeight: 600 }}>أكاديمية كرة القدم — بوابة الدخول الموحدة</p>
         </div>
 
         <div style={{ background: "rgba(18,17,31,.88)", border: "1px solid rgba(124,73,168,.22)", borderRadius: 24, padding: "32px 28px", backdropFilter: "blur(20px)", animation: "fadeUp .6s .15s ease both", opacity: 0 }}>
