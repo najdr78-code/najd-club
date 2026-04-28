@@ -837,17 +837,7 @@ export default function App() {
       if (typeof val === 'function') {
         setPlayers(prev => {
           const next = val(prev);
-          if (API_URL) {
-            const added = next.filter(p => !prev.find(x => x.id === p.id));
-            const updated = next.filter(p => prev.find(x => x.id === p.id && JSON.stringify(x) !== JSON.stringify(p)));
-            [...added, ...updated].forEach(p => {
-              fetch(`${API_URL}/api/players`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(p)
-              }).catch(console.error);
-            });
-          }
+          lastLocalUpdate.current = Date.now();
           return next;
         });
       } else {
@@ -858,16 +848,7 @@ export default function App() {
       if (typeof val === 'function') {
         setGroups(prev => {
           const next = val(prev);
-          if (API_URL) {
-            const changed = next.filter(g => !prev.find(x => x.id === g.id && JSON.stringify(x) === JSON.stringify(g)));
-            changed.forEach(g => {
-              fetch(`${API_URL}/api/groups`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(g)
-              }).catch(console.error);
-            });
-          }
+          lastLocalUpdate.current = Date.now();
           return next;
         });
       } else {
@@ -2403,11 +2384,38 @@ function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coac
   const [form, setForm]   = useState({ playerId: myPlayers[0]?.id || "", type: "subscription", month: "أبريل 2026", note: "", date: new Date().toISOString().split("T")[0] });
   const myPays = payments.filter(p => p.coachId === coachId);
   const total  = myPays.reduce((a, p) => a + p.amount, 0);
-  const save   = () => {
+  const save = async () => {
     const player = myPlayers.find(p => p.id === form.playerId);
     const coach  = coaches.find(c => c.id === coachId);
-    setPayments(ps => [...ps, { ...form, id: `pay${Date.now()}`, coachId, coachName: coach?.name || "", playerName: player?.name || "", amount: prices[form.type] || 0 }]);
+    const amount = prices[form.type] || 0;
+    
+    const paymentData = {
+      id: `pay${Date.now()}`,
+      playerId: form.playerId,
+      coachId,
+      type: form.type,
+      month: form.month,
+      amount,
+      date: new Date(form.date).toISOString(),
+      note: form.note,
+      coachName: coach?.name || ""
+    };
+
+    // Optimistic UI update (with name for display)
+    setPayments(ps => [{ ...paymentData, playerName: player?.name || "" }, ...ps]);
     setModal(false);
+
+    if (API_URL) {
+      try {
+        await fetch(`${API_URL}/api/payments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(paymentData)
+        });
+      } catch (e) {
+        console.error("Payment save failed:", e);
+      }
+    }
   };
   return (
     <div>
@@ -2698,7 +2706,39 @@ function ParentPayments({ child, childPays, prices, t }) {
           </thead>
           <tbody>
             {childPays.slice().reverse().map(p => {
-              const pt = PAY_TYPES[p.type];
+     const newPayment = {
+      id: `pay-${Date.now()}`,
+      playerId: selPlayer.id,
+      amount: +amount,
+      type,
+      month,
+      date: new Date().toISOString(),
+      note,
+      coachId: coach.id,
+      coachName: coach.name
+    };
+    
+    // Optimistic UI update (with name for display)
+    const displayPayment = { ...newPayment, playerName: selPlayer.name };
+    setPayments(prev => [displayPayment, ...prev]);
+    
+    if (API_URL) {
+      try {
+        await fetch(`${API_URL}/api/payments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newPayment)
+        });
+      } catch (e) {
+        console.error("Payment save failed:", e);
+      }
+    }
+    
+    setSelPlayer(null);
+    setAmount("");
+    setNote("");
+  };
+const pt = PAY_TYPES[p.type];
               return (
                 <tr key={p.id} className={t.name === "dark" ? "rh" : "rhl"} style={{ borderBottom: `1px solid ${t.border}`, transition: "background .15s" }}>
                   <td style={{ padding: "10px 14px" }}><Chip text={`${pt.icon} ${pt.label}`} color={pt.color}/></td>
