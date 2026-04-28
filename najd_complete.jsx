@@ -723,7 +723,7 @@ export default function App() {
   const setLastUpdate = () => localStorage.setItem('najd_last_update', Date.now().toString());
   const isRecentlyUpdated = () => {
     const last = parseInt(localStorage.getItem('najd_last_update') || '0');
-    return (Date.now() - last < 15000);
+    return (Date.now() - last < 45000);
   };
 
   // Sync logged-in user if their data (like perms) changes in the main list
@@ -748,7 +748,6 @@ export default function App() {
   useEffect(() => {
     if (API_URL) {
       const fetchData = async () => {
-        if (user?.role === 'admin') return; 
         if (isRecentlyUpdated()) return;
         
         try {
@@ -758,25 +757,34 @@ export default function App() {
           
           if (isRecentlyUpdated()) return; 
 
-          // SMART MERGE Logic for all data types
           const merge = (local, remote) => {
-            const remoteIds = new Set(remote.map(r => r.id));
-            const localOnly = local.filter(l => !remoteIds.has(l.id));
-            // For items that exist in both, prefer remote (source of truth) 
-            // BUT only if we haven't just updated locally
-            return [...localOnly, ...remote];
+            if (!remote) return local;
+            const res = [...local];
+            const localIds = new Set(local.map(l => l.id));
+            
+            remote.forEach(r => {
+              if (!localIds.has(r.id)) {
+                res.push(r);
+              } else {
+                // If it exists in both, only update from remote if NOT recently updated
+                if (!isRecentlyUpdated()) {
+                  const idx = res.findIndex(l => l.id === r.id);
+                  res[idx] = r;
+                }
+              }
+            });
+            return res;
           };
 
           if (data.coaches)  setCoaches(prev => merge(prev, data.coaches));
           if (data.payments) setPayments(prev => merge(prev, data.payments));
           if (data.players)  setPlayers(prev => merge(prev, data.players));
           if (data.groups)   setGroups(prev => merge(prev, data.groups));
-          
-          if (data.attendance) setAttendance(data.attendance);
-          if (data.coachesAttendance) setCoachesAttendance(data.coachesAttendance);
-          if (data.evals) setEvals(data.evals);
-          if (data.messages) setMessages(data.messages);
-          if (data.trainings) setTrainings(data.trainings);
+          if (data.attendance) setAttendance(prev => merge(prev, data.attendance));
+          if (data.coachesAttendance) setCoachesAttendance(prev => merge(prev, data.coachesAttendance));
+          if (data.evals) setEvals(prev => merge(prev, data.evals));
+          if (data.messages) setMessages(prev => merge(prev, data.messages));
+          if (data.trainings) setTrainings(prev => merge(prev, data.trainings));
         } catch (e) {
           console.error("API Fetch Error:", e);
         }
