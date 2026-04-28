@@ -677,7 +677,7 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {actions}
-          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.2.0</div>
+          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.2.1</div>
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -1069,7 +1069,7 @@ export default function App() {
 
   if (globalError) return (
     <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.2.0)</h2>
+      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.2.1)</h2>
       <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
         <b>Error:</b> {globalError.message}
         <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{globalError.stack}</pre>
@@ -1119,7 +1119,7 @@ export default function App() {
   } catch (err) {
     return (
       <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.2.0)</h2>
+        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.2.1)</h2>
         <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
           <b>Error:</b> {err.message}
           <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{err.stack}</pre>
@@ -3011,10 +3011,10 @@ function Messaging({ messages, setMessages, meId, meName, coaches, parents, play
     
     const newMsgs = form.to.map(targetId => {
       let targetName = "";
-      if (targetId === "admin") targetName = "الإدارة";
+      if (String(targetId) === "admin") targetName = "الإدارة";
       else {
-        const c = coaches.find(x => x.id === targetId);
-        const p = parents.find(x => x.id === targetId);
+        const c = (coaches || []).find(x => String(x.id) === String(targetId));
+        const p = (parents || []).find(x => String(x.id) === String(targetId));
         targetName = c?.name || p?.name || "مستخدم";
       }
 
@@ -3050,19 +3050,19 @@ function Messaging({ messages, setMessages, meId, meName, coaches, parents, play
   // Role-based Contact Filtering
   let filteredContacts = [
     { id: "admin", name: "الإدارة", type: "admin" },
-    ...coaches.map(c => ({ id: c.id, name: c.name, type: "coach", groupId: c.groupId })),
-    ...parents.map(p => ({ id: p.id, name: p.name, type: "parent" })),
-  ].filter(c => c.id !== meId);
+    ...(coaches || []).map(c => ({ id: c.id, name: c.name, type: "coach", groupId: c.groupId })),
+    ...(parents || []).map(p => ({ id: p.id, name: p.name, type: "parent" })),
+  ].filter(c => String(c.id) !== String(meId));
 
   if (role === "parent") {
     // Parent can only message Admin and their child's Coach
-    const safeCoachIds = myCoachIds || [];
-    filteredContacts = filteredContacts.filter(c => c.type === "admin" || (c.type === "coach" && safeCoachIds.includes(c.id)));
+    const safeCoachIds = (myCoachIds || []).map(String);
+    filteredContacts = filteredContacts.filter(c => c.type === "admin" || (c.type === "coach" && safeCoachIds.includes(String(c.id))));
   } else if (role === "coach") {
     // Coach can message Admin and Parents in their group
-    // Find all parents of players in my group
-    const myGroupPlayerIds = players.filter(p => p.groupId === myGroupId).map(p => p.parentId);
-    filteredContacts = filteredContacts.filter(c => c.type === "admin" || (c.type === "parent" && myGroupPlayerIds.includes(c.id)));
+    const myGid = String(myGroupId);
+    const myGroupParentIds = (players || []).filter(p => p && String(p.groupId) === myGid).map(p => String(p.parentId));
+    filteredContacts = filteredContacts.filter(c => c.type === "admin" || (c.type === "parent" && myGroupParentIds.includes(String(c.id))));
   }
 
   const allContacts = filteredContacts;
