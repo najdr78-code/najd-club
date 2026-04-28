@@ -226,6 +226,42 @@ app.post('/api/messages', async (req, res) => {
   }
 });
 
+app.post('/api/evaluations', async (req, res) => {
+  const e = req.body;
+  try {
+    const evaluation = await prisma.evaluation.upsert({
+      where: { id: e.id || 'new' },
+      update: { 
+        playerId: e.playerId, coachId: e.coachId, coachName: e.coachName,
+        speed: e.speed, technique: e.technique, teamwork: e.teamwork, 
+        note: e.note, date: e.date 
+      },
+      create: { 
+        id: e.id, playerId: e.playerId, coachId: e.coachId, coachName: e.coachName,
+        speed: e.speed, technique: e.technique, teamwork: e.teamwork, 
+        note: e.note, date: e.date 
+      }
+    });
+    res.json(evaluation);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/coaches-attendance', async (req, res) => {
+  const a = req.body;
+  try {
+    const att = await prisma.attendance.upsert({
+      where: { id: a.id },
+      update: { records: a.records },
+      create: { id: a.id, date: new Date(a.date), groupId: a.groupId, coachId: a.coachId, records: a.records }
+    });
+    res.json(att);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
