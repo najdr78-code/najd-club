@@ -61,7 +61,13 @@ app.get('/api/initial-data', async (req, res) => {
 
     res.json({
       groups,
-      coaches: coaches.map(c => ({ ...c, ...c.user, id: c.id })),
+      coaches: coaches.map(c => ({ 
+        ...c.user, 
+        ...c, 
+        id: c.id, 
+        userId: c.user.id,
+        user: undefined 
+      })),
       players,
       payments,
       attendance,

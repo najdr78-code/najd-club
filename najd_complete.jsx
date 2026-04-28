@@ -718,6 +718,7 @@ export default function App() {
   const [players, setPlayers] = useState(() => JSON.parse(localStorage.getItem('najd_players') || '[]'));
   const [payments, setPayments] = useState(() => JSON.parse(localStorage.getItem('najd_payments') || '[]'));
   const [theme, setTheme] = useState(() => localStorage.getItem('najd_theme') || "dark");
+  const lastLocalUpdate = useRef(0);
 
   // Sync logged-in user if their data (like perms) changes in the main list
   useEffect(() => {
@@ -741,6 +742,7 @@ export default function App() {
   useEffect(() => {
     if (API_URL) {
       const fetchData = async () => {
+        if (Date.now() - lastLocalUpdate.current < 20000) return; // Skip if we just updated locally
         try {
           const res = await fetch(`${API_URL}/api/initial-data`);
           if (!res.ok) throw new Error("Fetch failed");
@@ -828,6 +830,7 @@ export default function App() {
       if (typeof val === 'function') {
         setCoaches(prev => {
           const next = val(prev);
+          lastLocalUpdate.current = Date.now();
           if (API_URL) {
             const updated = next.filter(c => {
               const old = prev.find(x => x.id === c.id);
@@ -1999,7 +2002,7 @@ function AdminAttendance({ groups, players, coaches, attendance, setAttendance, 
 }
 
 function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, setEvals, messages, setMessages, prices, trainings, setTrainings, t }) {
-  const coach = coaches.find(c => c.id === user.id);
+  const coach = coaches.find(c => c.userId === user.id || c.id === user.id);
   
   if (!coach && coaches.length === 0) {
     return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: t.bg, color: t.textDim }}>جاري تحميل بيانات المدرب...</div>;
