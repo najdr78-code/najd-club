@@ -2566,7 +2566,7 @@ function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coac
 /* ══════════════════════════════════════════════════════════
    PARENT PORTAL
 ══════════════════════════════════════════════════════════ */
-function ParentPortal({ user, onLogout, players, groups, coaches, parents, payments, attendance, evals, messages, setMessages, prices, trainings, t }) {
+function ParentPortal({ user, onLogout, players, groups, coaches, parents, payments, attendance, evals = [], messages, setMessages, prices, trainings, t, forceRefresh }) {
   // 1. Identify the parent from the dynamic parents list
   const parent = parents.find(p => p.id === user.id) || { name: user.name, id: user.id };
   
@@ -2606,7 +2606,8 @@ function ParentPortal({ user, onLogout, players, groups, coaches, parents, payme
   ];
 
   return (
-    <Shell title={`أهلاً، ${parent.name}`} subtitle="بوابة ولي الأمر" color="#10B981" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge="ولي أمر" user={user} t={t}>
+    <Shell title={`أهلاً، ${parent.name}`} subtitle="بوابة ولي الأمر" color="#10B981" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge="ولي أمر" user={user} t={t}
+      actions={<Btn variant="secondary" onClick={forceRefresh} style={{ padding: "6px 12px", fontSize: 11 }}>🔄 تحديث</Btn>}>
       {myPlayers.length > 1 && (
         <div style={{ display: "flex", gap: 8, marginBottom: 18, borderBottom: `1px solid ${t.border}`, paddingBottom: 14 }}>
           {myPlayers.map(p => (
