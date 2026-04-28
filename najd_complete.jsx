@@ -1226,7 +1226,13 @@ function AdminCoaches({ coaches, setCoaches, groups, players, payments, t }) {
   };
 
   const togglePerm = (coachId, permKey) => {
-    setCoaches(cs => cs.map(c => c.id === coachId ? { ...c, perms: { ...c.perms, [permKey]: !c.perms[permKey] } } : c));
+    setCoaches(cs => cs.map(c => {
+      if (c.id === coachId) {
+        const currentPerms = c.perms || { ...DEFAULT_PERMS };
+        return { ...c, perms: { ...currentPerms, [permKey]: !currentPerms[permKey] } };
+      }
+      return c;
+    }));
   };
 
   if (sel) {
