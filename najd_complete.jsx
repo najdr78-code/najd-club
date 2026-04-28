@@ -750,23 +750,37 @@ export default function App() {
           if (!res.ok) throw new Error("Fetch failed");
           const data = await res.json();
           
+          const isRecentUpdate = (Date.now() - lastLocalUpdate.current < 20000);
+
           if (data.coaches) {
-            // MERGE Logic: If we are an admin, we might have local changes not yet in DB
-            // But since we disabled polling for admin above, this mostly affects coaches.
             setCoaches(prev => {
-              return data.coaches.map(remote => {
-                const local = prev.find(p => p.id === remote.id);
-                // If local has newer perms and we just updated, keep local perms
-                if (local && Date.now() - lastLocalUpdate.current < 20000) {
-                   return { ...remote, perms: local.perms };
-                }
-                return remote;
-              });
+              if (isRecentUpdate) return prev; // Keep local state during sync
+              return data.coaches;
             });
           }
-          if (data.players) setPlayers(data.players);
-          if (data.groups) setGroups(data.groups);
-          if (data.payments) setPayments(data.payments);
+          if (data.payments) {
+            setPayments(prev => {
+              if (isRecentUpdate) {
+                // Merge: keep local payments that aren't in remote yet
+                const remoteIds = new Set(data.payments.map(p => p.id));
+                const localOnly = prev.filter(p => !remoteIds.has(p.id));
+                return [...localOnly, ...data.payments];
+              }
+              return data.payments;
+            });
+          }
+          if (data.players) {
+            setPlayers(prev => {
+              if (isRecentUpdate) return prev;
+              return data.players;
+            });
+          }
+          if (data.groups) {
+            setGroups(prev => {
+              if (isRecentUpdate) return prev;
+              return data.groups;
+            });
+          }
           if (data.attendance) setAttendance(data.attendance);
           if (data.coachesAttendance) setCoachesAttendance(data.coachesAttendance);
           if (data.evals) setEvals(data.evals);
