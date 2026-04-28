@@ -777,7 +777,18 @@ export default function App() {
 
           if (data.coaches)  setCoaches(prev => merge(prev, data.coaches));
           if (data.payments) setPayments(prev => merge(prev, data.payments));
-          if (data.players)  setPlayers(prev => merge(prev, data.players));
+          if (data.players) {
+            const repaired = data.players.map(p => {
+              if (p.email && p.password) return p;
+              const phone = p.phone || "0500000000";
+              return { 
+                ...p, 
+                email: p.email || `najd_${phone}@najd.sa`,
+                password: p.password || `najd_${phone.slice(-4)}`
+              };
+            });
+            setPlayers(prev => merge(prev, repaired));
+          }
           if (data.groups)   setGroups(prev => merge(prev, data.groups));
           if (data.attendance) setAttendance(prev => merge(prev, data.attendance));
           if (data.coachesAttendance) setCoachesAttendance(prev => merge(prev, data.coachesAttendance));
