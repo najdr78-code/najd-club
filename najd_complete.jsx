@@ -722,7 +722,7 @@ export default function App() {
   const setLastUpdate = () => localStorage.setItem('najd_last_update', Date.now().toString());
   const isRecentlyUpdated = () => {
     const last = parseInt(localStorage.getItem('najd_last_update') || '0');
-    return (Date.now() - last < 45000);
+    return (Date.now() - last < 15000);
   };
 
   // Sync logged-in user if their data (like perms) changes in the main list
@@ -1037,7 +1037,14 @@ export default function App() {
         setTrainings(val);
       }
     },
-    t 
+    t,
+    forceRefresh: () => {
+      setLastUpdate(0); // Clear lock
+      // fetchData is internal to useEffect, but we can setLastUpdate to 0 
+      // and the next poll (or manual reload) will work.
+      localStorage.setItem('najd_last_update', '0');
+      window.location.reload(); 
+    }
   };
 
   return (
@@ -1098,7 +1105,8 @@ function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, p
     { id: "messages",     icon: "messages",     label: "الرسائل",      badge: messages.filter(m => m.to === "admin" && !m.read).length || undefined },
   ];
   return (
-    <Shell title="لوحة الإدارة" subtitle="نادي نجد الرياض" color="#7C49A8" icon="dashboard" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge="مدير عام" user={user} t={t}>
+    <Shell title="لوحة الإدارة" subtitle="نادي نجد الرياض" color="#7C49A8" icon="dashboard" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge="مدير عام" user={user} t={t}
+      actions={<Btn variant="secondary" onClick={forceRefresh} style={{ padding: "6px 12px", fontSize: 11 }}>🔄 تحديث البيانات</Btn>}>
       {tab === "overview"  && <AdminOverview players={players} coaches={coaches} groups={groups} payments={payments} t={t} />}
       {tab === "teams"     && <AdminTeams groups={groups} setGroups={setGroups} coaches={coaches} players={players} t={t} />}
       {tab === "attendance" && <AdminAttendance groups={groups} players={players} coaches={coaches} attendance={attendance} setAttendance={setAttendance} coachesAttendance={coachesAttendance} setCoachesAttendance={setCoachesAttendance} t={t} />}
@@ -1597,7 +1605,7 @@ function AdminCoaches({ coaches, setCoaches, groups, players, payments, t }) {
 }
 
 /* ── Admin Players ──────────────────────────────────── */
-function AdminPlayers({ players, setPlayers, groups, parents, evals, coaches, t }) {
+function AdminPlayers({ players, setPlayers, groups, parents, evals = [], coaches, t }) {
   const [sel, setSel]   = useState(null);
   const [modal, setModal] = useState(false);
   const [search, setSearch] = useState("");
@@ -1637,7 +1645,8 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals, coaches, t 
             <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 16 }}>📊 المهارات والتقييم الأخير</div>
             
             {(() => {
-              const lastEval = evals.filter(e => e.playerId == p.id).slice(-1)[0];
+              const playerEvals = (evals || []).filter(e => String(e.playerId) == String(p.id));
+              const lastEval = playerEvals.slice(-1)[0];
               if (!lastEval) return (
                 <div style={{ background: "rgba(124,73,168,.05)", padding: 16, borderRadius: 12, marginBottom: 20, border: `1px dashed ${t.border}`, textAlign: "center" }}>
                   <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
@@ -1747,7 +1756,8 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals, coaches, t 
                   <td style={{ padding: "11px 14px" }}><Chip text={p.status} color={p.status === "نشط" ? "#10B981" : "#EF4444"}/></td>
                   <td style={{ padding: "11px 14px" }}>
                     {(() => {
-                      const last = evals.filter(e => e.playerId == p.id).slice(-1)[0];
+                      const playerEvals = (evals || []).filter(e => String(e.playerId) == String(p.id));
+                      const last = playerEvals.slice(-1)[0];
                       if (!last) return <span style={{ fontSize: 10, color: t.textFaint }}>—</span>;
                       const coach = coaches.find(c => c.id == last.coachId || c.userId == last.coachId);
                       return (
@@ -2449,8 +2459,8 @@ function CoachEval({ coachId, coachName, myPlayers, evals, setEvals, t }) {
     <div>
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}><Btn onClick={() => setModal(true)}><AnimIcon type="plus" size={14} color="#fff"/> إضافة تقييم</Btn></div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {evals.filter(e => e.coachId === coachId).slice().reverse().map(e => {
-          const p = myPlayers.find(x => x.id === e.playerId);
+        {(evals || []).slice().reverse().map(e => {
+          const p = players.find(x => String(x.id) == String(e.playerId));
           return (
             <Card key={e.id} t={t} style={{ padding: 18 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
