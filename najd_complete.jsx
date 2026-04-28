@@ -2051,10 +2051,19 @@ function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPa
     { id: "payments",   icon: "payments",   label: "المدفوعات",        perm: "payments" },
     { id: "messages",   icon: "messages",   label: "الرسائل",           perm: "messages", badge: unread || undefined },
   ];
-  const tabs = allTabs.filter(tb => {
-    if (tb.perm === null) return true;
-    return perms[tb.perm] === true;
-  });
+  let permsObj = coach?.perms || {};
+  if (typeof permsObj === 'string') {
+    try { permsObj = JSON.parse(permsObj); } catch(e) { permsObj = {}; }
+  }
+  const perms = { ...DEFAULT_PERMS, ...permsObj };
+
+  // Explicitly check if a tab is allowed
+  const isTabAllowed = (permKey) => {
+    if (!permKey) return true;
+    return perms[permKey] === true;
+  };
+
+  const tabs = allTabs.filter(tb => isTabAllowed(tb.perm));
   const [tab, setTab] = useState("home");
 
   useEffect(() => {
@@ -2066,6 +2075,9 @@ function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPa
 
   return (
     <Shell title={coach.name} subtitle={`مدرب ${group?.name || ""}`} color="#06B6D4" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge={group?.name} user={user} t={t}>
+      <div style={{ position: "fixed", top: 10, left: 10, pointerEvents: "none", opacity: 0.2, fontSize: 9 }}>
+        ID: {coach.id} | U: {coach.userId} | P: {JSON.stringify(perms).slice(0,30)}...
+      </div>
       {tab === "home"       && <CoachHome coach={coach} group={group} groups={groups} myPlayers={myPlayers} attendance={attendance} evals={evals} trainings={trainings} t={t}/>}
       {tab === "sessions"   && <CoachSessions coach={coach} group={group} groups={groups} trainings={trainings} t={t}/>}
       {tab === "players"    && <CoachPlayers myPlayers={myPlayers} group={group} evals={evals} t={t}/>}
