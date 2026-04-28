@@ -663,7 +663,7 @@ function LoginPage({ onLogin, players = [], coaches = [], t }) {
 }
 
 /* ═══ SHELL ═══════════════════════════════════════════ */
-function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, onLogout, badge, user, t, children, actions }) {
+function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, onLogout, badge, user, t, children }) {
   const theme = t || THEMES.dark;
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: theme.bg }}>
@@ -676,7 +676,6 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {actions}
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -2180,7 +2179,7 @@ function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPa
       {tab === "sessions"   && <CoachSessions coach={coach} group={group} groups={groups} trainings={trainings} t={t}/>}
       {tab === "players"    && <CoachPlayers myPlayers={myPlayers} group={group} evals={evals} t={t}/>}
       {tab === "attendance" && perms.attendance !== false && <CoachAttendance coachId={user.id} group={group} myPlayers={myPlayers} attendance={attendance} setAttendance={setAttendance} t={t}/>}
-      {tab === "eval"       && perms.evals !== false      && <CoachEval coachId={user.id} coachName={coach.name} myPlayers={myPlayers} evals={evals} setEvals={setEvals} t={t}/>}
+      {tab === "eval"       && perms.evals !== false      && <CoachEval coachId={user.id} coachName={coach.name} myPlayers={myPlayers} players={players} evals={evals} setEvals={setEvals} t={t}/>}
       {tab === "payments"   && perms.payments !== false   && <CoachPayments coachId={user.id} myPlayers={myPlayers} payments={payments} setPayments={setPayments} prices={prices} coaches={coaches} t={t}/>}
       {tab === "messages"   && perms.messages !== false   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={coach.name} coaches={coaches} parents={parents} t={t} role="coach"/>}
     </Shell>
@@ -2449,7 +2448,7 @@ function CoachAttendance({ coachId, group, myPlayers, attendance, setAttendance,
 }
 
 /* ── Coach Eval ─────────────────────────────────────── */
-function CoachEval({ coachId, coachName, myPlayers, evals, setEvals, t }) {
+function CoachEval({ coachId, coachName, myPlayers, players, evals, setEvals, t }) {
   const [modal, setModal] = useState(false);
   const [form, setForm]   = useState({ playerId: myPlayers[0]?.id || "", speed: 80, technique: 80, teamwork: 80, note: "", date: new Date().toISOString().split("T")[0] });
   const save = () => { 
@@ -2461,7 +2460,7 @@ function CoachEval({ coachId, coachName, myPlayers, evals, setEvals, t }) {
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}><Btn onClick={() => setModal(true)}><AnimIcon type="plus" size={14} color="#fff"/> إضافة تقييم</Btn></div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {(evals || []).slice().reverse().map(e => {
-          const p = myPlayers.find(x => String(x.id) == String(e.playerId));
+          const p = players.find(x => String(x.id) == String(e.playerId));
           return (
             <Card key={e.id} t={t} style={{ padding: 18 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
