@@ -756,23 +756,22 @@ export default function App() {
           if (!res.ok) throw new Error("Fetch failed");
           const data = await res.json();
           
-          if (isRecentlyUpdated()) return; // Double check
+          if (isRecentlyUpdated()) return; 
 
-          if (data.coaches) {
-            setCoaches(prev => isRecentlyUpdated() ? prev : data.coaches);
-          }
-          if (data.payments) {
-            setPayments(prev => {
-              if (isRecentlyUpdated()) {
-                const remoteIds = new Set(data.payments.map(p => p.id));
-                const localOnly = prev.filter(p => !remoteIds.has(p.id));
-                return [...localOnly, ...data.payments];
-              }
-              return data.payments;
-            });
-          }
-          if (data.players) setPlayers(prev => isRecentlyUpdated() ? prev : data.players);
-          if (data.groups) setGroups(prev => isRecentlyUpdated() ? prev : data.groups);
+          // SMART MERGE Logic for all data types
+          const merge = (local, remote) => {
+            const remoteIds = new Set(remote.map(r => r.id));
+            const localOnly = local.filter(l => !remoteIds.has(l.id));
+            // For items that exist in both, prefer remote (source of truth) 
+            // BUT only if we haven't just updated locally
+            return [...localOnly, ...remote];
+          };
+
+          if (data.coaches)  setCoaches(prev => merge(prev, data.coaches));
+          if (data.payments) setPayments(prev => merge(prev, data.payments));
+          if (data.players)  setPlayers(prev => merge(prev, data.players));
+          if (data.groups)   setGroups(prev => merge(prev, data.groups));
+          
           if (data.attendance) setAttendance(data.attendance);
           if (data.coachesAttendance) setCoachesAttendance(data.coachesAttendance);
           if (data.evals) setEvals(data.evals);
@@ -784,7 +783,7 @@ export default function App() {
       };
       
       fetchData();
-      const interval = setInterval(fetchData, user?.role === 'admin' ? 60000 : 5000); 
+      const interval = setInterval(fetchData, 10000); // Polling for everyone
       return () => clearInterval(interval);
     }
   }, [user?.role]);

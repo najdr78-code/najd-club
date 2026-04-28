@@ -125,8 +125,18 @@ app.post('/api/players', async (req, res) => {
 });
 
 app.post('/api/payments', async (req, res) => {
-  const payment = await prisma.payment.create({ data: req.body });
-  res.json(payment);
+  try {
+    const { id, playerId, coachId, coachName, type, month, amount, date, note } = req.body;
+    const payment = await prisma.payment.upsert({
+      where: { id: id || 'new' },
+      update: { playerId, coachId, coachName, type, month, amount, date: new Date(date), note },
+      create: { id, playerId, coachId, coachName, type, month, amount, date: new Date(date), note }
+    });
+    res.json(payment);
+  } catch (e) {
+    console.error("Payment error:", e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Save Attendance
