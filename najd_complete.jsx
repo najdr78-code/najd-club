@@ -705,6 +705,16 @@ export default function App() {
     const saved = localStorage.getItem('najd_logged_user');
     return saved ? JSON.parse(saved) : null;
   });
+
+  // Sync logged-in user if their data (like perms) changes in the main list
+  useEffect(() => {
+    if (user && user.role === 'coach') {
+      const updated = coaches.find(c => c.id === user.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(user)) {
+        setUser({ ...updated, role: 'coach' });
+      }
+    }
+  }, [coaches, user]);
   const [attendance, setAttendance] = useState(() => JSON.parse(localStorage.getItem('najd_attendance') || '[]'));
   const [evals, setEvals] = useState(() => JSON.parse(localStorage.getItem('najd_evals') || '[]'));
   const [messages, setMessages] = useState(() => JSON.parse(localStorage.getItem('najd_messages') || '[]'));
@@ -1315,7 +1325,7 @@ function AdminCoaches({ coaches, setCoaches, groups, players, payments, t }) {
   const togglePerm = (coachId, permKey) => {
     setCoaches(cs => cs.map(c => {
       if (c.id === coachId) {
-        const currentPerms = c.perms || { ...DEFAULT_PERMS };
+        const currentPerms = { ...DEFAULT_PERMS, ...(c.perms || {}) };
         return { ...c, perms: { ...currentPerms, [permKey]: !currentPerms[permKey] } };
       }
       return c;
@@ -1996,8 +2006,11 @@ function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPa
   const [tab, setTab] = useState("home");
 
   useEffect(() => {
-    if (!tabs.find(tb => tb.id === tab)) setTab("home");
-  }, [perms]);
+    const isAllowed = tabs.find(tb => tb.id === tab);
+    if (!isAllowed && tab !== "home") {
+      setTab("home");
+    }
+  }, [tabs, tab]);
 
   return (
     <Shell title={coach.name} subtitle={`مدرب ${group?.name || ""}`} color="#06B6D4" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge={group?.name} user={user} t={t}>
