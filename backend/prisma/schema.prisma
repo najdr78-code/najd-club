@@ -48,6 +48,7 @@ model Coach {
   attendance Attendance[]
   evaluations Evaluation[]
   trainings   Training[]
+  perms       Json?    // { "attendance": true, "payments": false, ... }
 }
 
 model Parent {

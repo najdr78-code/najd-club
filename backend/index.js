@@ -138,6 +138,59 @@ app.post('/api/attendance', async (req, res) => {
   }
 });
 
+app.post('/api/coaches', async (req, res) => {
+  const c = req.body;
+  try {
+    await prisma.user.update({
+      where: { id: c.userId },
+      data: { email: c.email, password: c.password, name: c.name }
+    });
+    const coach = await prisma.coach.update({
+      where: { id: c.id },
+      data: { specialty: c.specialty, perms: c.perms, groupId: c.groupId }
+    });
+    res.json(coach);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/groups', async (req, res) => {
+  const g = req.body;
+  try {
+    const group = await prisma.group.upsert({
+      where: { id: g.id || 'new' },
+      update: { name: g.name, color: g.color },
+      create: { id: g.id, name: g.name, color: g.color }
+    });
+    res.json(group);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/trainings', async (req, res) => {
+  const t = req.body;
+  try {
+    const training = await prisma.training.upsert({
+      where: { id: t.id || 'new' },
+      update: { 
+        groupId: t.groupId, coachId: t.coachId, days: t.days, 
+        time: t.time, duration: t.duration, field: t.field, 
+        title: t.title, trainingFocus: t.trainingFocus, note: t.note 
+      },
+      create: { 
+        id: t.id, groupId: t.groupId, coachId: t.coachId, days: t.days, 
+        time: t.time, duration: t.duration, field: t.field, 
+        title: t.title, trainingFocus: t.trainingFocus, note: t.note 
+      }
+    });
+    res.json(training);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/messages', async (req, res) => {
   const msg = await prisma.message.create({ data: req.body });
   res.json(msg);
