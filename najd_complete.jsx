@@ -677,7 +677,7 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {actions}
-          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.2.6</div>
+          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.2.7</div>
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -1069,7 +1069,7 @@ export default function App() {
 
   if (globalError) return (
     <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.2.6)</h2>
+      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.2.7)</h2>
       <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
         <b>Error:</b> {globalError.message}
         <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{globalError.stack}</pre>
@@ -1125,12 +1125,13 @@ export default function App() {
   } catch (err) {
     return (
       <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.2.6)</h2>
+        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.2.7)</h2>
         <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
           <b>Error:</b> {err.message}
           <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{err.stack}</pre>
         </div>
-        <button onClick={() => window.location.reload()} style={{ marginTop: 20, padding: "10px 20px", background: "#FF5555", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>Reload App</button>
+        <button onClick={() => window.location.reload()} style={{ marginTop: 20, padding: "10px 20px", background: "#FF5555", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", marginRight: 10 }}>Reload App</button>
+        <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={{ marginTop: 20, padding: "10px 20px", background: "transparent", color: "#FFBABA", border: "1px solid #FFBABA", borderRadius: 8, cursor: "pointer" }}>Clear Data & Reset</button>
       </div>
     );
   }
