@@ -791,6 +791,10 @@ export default function App() {
     const handleStorage = (e) => {
       try {
         if (!e.newValue) return;
+        if (e.key === 'najd_theme') {
+          setTheme(e.newValue);
+          return;
+        }
         const val = JSON.parse(e.newValue);
         if (e.key === 'najd_players') setPlayers(val);
         if (e.key === 'najd_coaches') setCoaches(val);
@@ -802,7 +806,6 @@ export default function App() {
         if (e.key === 'najd_messages') setMessages(val);
         if (e.key === 'najd_prices') setPrices(val);
         if (e.key === 'najd_trainings') setTrainings(val);
-        if (e.key === 'najd_theme') setTheme(e.newValue);
         if (e.key === 'najd_logged_user') setUser(val);
       } catch (err) {
         console.error("Storage sync error:", err);
@@ -812,7 +815,7 @@ export default function App() {
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  const t = THEMES[theme];
+  const t = THEMES[theme] || THEMES.dark;
 
   const shared = { 
     groups, 
@@ -1992,7 +1995,12 @@ function AdminAttendance({ groups, players, coaches, attendance, setAttendance, 
 }
 
 function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, setEvals, messages, setMessages, prices, trainings, setTrainings, t }) {
-  const coach = coaches.find(c => c.id === user.id) || coaches[0];
+  const coach = coaches.find(c => c.id === user.id);
+  
+  if (!coach && coaches.length === 0) {
+    return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: t.bg, color: t.textDim }}>جاري تحميل بيانات المدرب...</div>;
+  }
+  
   const perms = coach?.perms || { ...DEFAULT_PERMS };
   const group = groups.find(g => g.id === coach.groupId);
   const myPlayers = players.filter(p => p.groupId === coach.groupId);
