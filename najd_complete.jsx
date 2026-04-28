@@ -2008,7 +2008,7 @@ function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPa
     return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: t.bg, color: t.textDim }}>جاري تحميل بيانات المدرب...</div>;
   }
   
-  const perms = coach?.perms || { ...DEFAULT_PERMS };
+  const perms = { ...DEFAULT_PERMS, ...(coach?.perms || {}) };
   const group = groups.find(g => g.id === coach.groupId);
   const myPlayers = players.filter(p => p.groupId === coach.groupId);
   const unread = messages.filter(m => m.to === user.id && !m.read).length;
