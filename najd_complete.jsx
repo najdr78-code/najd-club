@@ -1699,6 +1699,7 @@ function AdminPayments({ payments, setPayments, players, coaches, prices, t }) {
     const newPayments = form.types.map(type => ({
       id: `pay${Date.now()}-${type}`,
       playerId: form.playerId,
+      playerName: player?.name || "",
       coachId: form.coachId,
       coachName: coach?.name || (form.coachId === "none" ? "الإدارة" : ""),
       type: type,
@@ -2081,7 +2082,7 @@ function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPa
       {tab === "players"    && <CoachPlayers myPlayers={myPlayers} group={group} evals={evals} t={t}/>}
       {tab === "attendance" && perms.attendance !== false && <CoachAttendance coachId={user.id} group={group} myPlayers={myPlayers} attendance={attendance} setAttendance={setAttendance} t={t}/>}
       {tab === "eval"       && perms.evals !== false      && <CoachEval coachId={user.id} myPlayers={myPlayers} evals={evals} setEvals={setEvals} t={t}/>}
-      {tab === "payments"   && perms.payments !== false   && <CoachPayments coachId={user.id} myPlayers={myPlayers} payments={payments} setPayments={setPayments} prices={prices} coaches={coaches} t={t}/>}
+      {tab === "payments"   && perms.payments !== false   && <CoachPayments coachId={user.id} myPlayers={myPlayers} players={players} payments={payments} setPayments={setPayments} prices={prices} coaches={coaches} t={t}/>}
       {tab === "messages"   && perms.messages !== false   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={coach.name} coaches={coaches} parents={INIT_PARENTS} t={t}/>}
     </Shell>
   );
@@ -2400,7 +2401,7 @@ function CoachEval({ coachId, myPlayers, evals, setEvals, t }) {
 }
 
 /* ── Coach Payments ─────────────────────────────────── */
-function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coaches, t }) {
+function CoachPayments({ coachId, myPlayers, players, payments, setPayments, prices, coaches, t }) {
   const [modal, setModal] = useState(false);
   const [form, setForm]   = useState({ playerId: myPlayers[0]?.id || "", type: "subscription", month: "أبريل 2026", note: "", date: new Date().toISOString().split("T")[0] });
   const myPays = payments.filter(p => p.coachId === coachId);
@@ -2413,6 +2414,7 @@ function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coac
     const paymentData = {
       id: `pay${Date.now()}`,
       playerId: form.playerId,
+      playerName: player?.name || "",
       coachId,
       type: form.type,
       month: form.month,
@@ -2456,7 +2458,7 @@ function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coac
           <tbody>
             {myPays.map(p => {
               const pt = PAY_TYPES[p.type];
-              const player = myPlayers.find(x => x.id === p.playerId);
+              const player = players.find(x => String(x.id) === String(p.playerId));
               return (
                 <tr key={p.id} className={t.name === "dark" ? "rh" : "rhl"} style={{ borderBottom: `1px solid ${t.border}`, transition: "background .15s" }}>
                   <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: t.text }}>{player?.name || p.playerName || "—"}</td>
