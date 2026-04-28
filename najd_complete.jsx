@@ -677,7 +677,7 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {actions}
-          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.1.7</div>
+          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.1.8</div>
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -719,6 +719,14 @@ export default function App() {
   const [players, setPlayers] = useState(() => JSON.parse(localStorage.getItem('najd_players') || '[]'));
   const [payments, setPayments] = useState(() => JSON.parse(localStorage.getItem('najd_payments') || '[]'));
   const [theme, setTheme] = useState(() => localStorage.getItem('najd_theme') || "dark");
+  const [globalError, setGlobalError] = useState(null);
+
+  // Global error listener for remote debugging
+  useEffect(() => {
+    const handleErr = (e) => setGlobalError({ message: e.message, stack: e.error?.stack });
+    window.addEventListener('error', handleErr);
+    return () => window.removeEventListener('error', handleErr);
+  }, []);
 
   // Coordinate updates between tabs
   const setLastUpdate = () => localStorage.setItem('najd_last_update', Date.now().toString());
@@ -1049,45 +1057,67 @@ export default function App() {
     }
   };
 
-  return (
-    <div style={{ fontFamily: "'Cairo',sans-serif", direction: "rtl", background: t.bg, minHeight: "100vh", color: t.text }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
-        *{box-sizing:border-box;margin:0;padding:0}
-        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#2A2050;border-radius:8px}
-        input,select,textarea,button{font-family:'Cairo',sans-serif;direction:rtl}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
-        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-        @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-        .rh:hover{background:rgba(124,73,168,.06)!important}
-        .rhl:hover{background:rgba(0,0,0,.03)!important}
-        .s1{animation:fadeUp .4s .05s ease both;opacity:0}
-        .s2{animation:fadeUp .4s .12s ease both;opacity:0}
-        .s3{animation:fadeUp .4s .20s ease both;opacity:0}
-        .s4{animation:fadeUp .4s .28s ease both;opacity:0}
-        .s5{animation:fadeUp .4s .36s ease both;opacity:0}
-      `}</style>
-
-      {/* Theme toggle button — fixed */}
-      {user && (
-        <button onClick={() => setTheme(s => s === "dark" ? "light" : "dark")}
-          style={{ position: "fixed", bottom: 24, left: 24, zIndex: 9000, width: 46, height: 46, borderRadius: "50%", background: t.bg2, border: `1px solid ${t.border}`, cursor: "pointer", display: "grid", placeItems: "center", boxShadow: `0 4px 16px ${t.shadow}`, transition: "all .3s" }}>
-          <AnimIcon type={theme === "dark" ? "sun" : "moon"} size={20} color={theme === "dark" ? "#D8A435" : "#A855F7"} />
-        </button>
-      )}
-
-      {!user
-        ? <LoginPage onLogin={setUser} players={players} coaches={coaches} t={t} />
-        : user.role === "admin"
-          ? <AdminPortal  user={user} onLogout={() => setUser(null)} {...shared} />
-          : user.role === "coach"
-            ? <CoachPortal  user={user} onLogout={() => setUser(null)} {...shared} />
-            : <ParentPortal user={user} onLogout={() => setUser(null)} {...shared} loginUser={user} />
-      }
+  if (globalError) return (
+    <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
+      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.1.8)</h2>
+      <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
+        <b>Error:</b> {globalError.message}
+        <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{globalError.stack}</pre>
+      </div>
+      <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={{ marginTop: 20, padding: "10px 20px", background: "#FF5555", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>Clear Data & Reload</button>
     </div>
   );
+
+  try {
+    return (
+      <div style={{ fontFamily: "'Cairo',sans-serif", direction: "rtl", background: t.bg, minHeight: "100vh", color: t.text }}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
+          *{box-sizing:border-box;margin:0;padding:0}
+          ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#2A2050;border-radius:8px}
+          input,select,textarea,button{font-family:'Cairo',sans-serif;direction:rtl}
+          @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+          @keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+          @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+          @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+          @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+          .s1{animation:fadeUp .4s .05s ease both;opacity:0}
+          .s2{animation:fadeUp .4s .12s ease both;opacity:0}
+          .s3{animation:fadeUp .4s .20s ease both;opacity:0}
+          .s4{animation:fadeUp .4s .28s ease both;opacity:0}
+          .s5{animation:fadeUp .4s .36s ease both;opacity:0}
+        `}</style>
+  
+        {user && (
+          <button onClick={() => setTheme(s => s === "dark" ? "light" : "dark")}
+            style={{ position: "fixed", bottom: 24, left: 24, zIndex: 9000, width: 46, height: 46, borderRadius: "50%", background: t.bg2, border: `1px solid ${t.border}`, cursor: "pointer", display: "grid", placeItems: "center", boxShadow: `0 4px 16px ${t.shadow}`, transition: "all .3s" }}>
+            <AnimIcon type={theme === "dark" ? "sun" : "moon"} size={20} color={theme === "dark" ? "#D8A435" : "#A855F7"} />
+          </button>
+        )}
+  
+        {!user ? (
+          <LoginPage onLogin={setUser} players={players} coaches={coaches} t={t} />
+        ) : (
+          <>
+            {user.role === "admin" && <AdminPortal user={user} onLogout={onLogout} {...shared} />}
+            {user.role === "coach" && <CoachPortal user={user} onLogout={onLogout} {...shared} />}
+            {user.role === "parent" && <ParentPortal user={user} onLogout={onLogout} {...shared} />}
+          </>
+        )}
+      </div>
+    );
+  } catch (err) {
+    return (
+      <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
+        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.1.8)</h2>
+        <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
+          <b>Error:</b> {err.message}
+          <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{err.stack}</pre>
+        </div>
+        <button onClick={() => window.location.reload()} style={{ marginTop: 20, padding: "10px 20px", background: "#FF5555", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>Reload App</button>
+      </div>
+    );
+  }
 }
 
 /* ══════════════════════════════════════════════════════════
