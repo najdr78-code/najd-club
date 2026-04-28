@@ -743,9 +743,9 @@ export default function App() {
       const fetchData = async () => {
         try {
           const res = await fetch(`${API_URL}/api/initial-data`);
+          if (!res.ok) throw new Error("Fetch failed");
           const data = await res.json();
           if (data.players) {
-            // Auto-repair missing logins/data for display
             const repaired = data.players.map(p => {
               if (p.email && p.password) return p;
               const phone = p.phone || "0500000000";
@@ -769,7 +769,10 @@ export default function App() {
           console.error("API Fetch Error:", e);
         }
       };
+      
       fetchData();
+      const interval = setInterval(fetchData, 15000); // Poll every 15s
+      return () => clearInterval(interval);
     }
   }, []);
 
@@ -2016,7 +2019,10 @@ function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPa
     { id: "payments",   icon: "payments",   label: "المدفوعات",        perm: "payments" },
     { id: "messages",   icon: "messages",   label: "الرسائل",           perm: "messages", badge: unread || undefined },
   ];
-  const tabs = allTabs.filter(tb => tb.perm === null || perms[tb.perm] !== false);
+  const tabs = allTabs.filter(tb => {
+    if (tb.perm === null) return true;
+    return perms[tb.perm] === true;
+  });
   const [tab, setTab] = useState("home");
 
   useEffect(() => {
@@ -2024,7 +2030,7 @@ function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPa
     if (!isAllowed && tab !== "home") {
       setTab("home");
     }
-  }, [tabs, tab]);
+  }, [tabs.length, tab]);
 
   return (
     <Shell title={coach.name} subtitle={`مدرب ${group?.name || ""}`} color="#06B6D4" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge={group?.name} user={user} t={t}>
