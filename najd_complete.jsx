@@ -706,18 +706,6 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Sync logged-in user if their data (like perms) changes in the main list
-  useEffect(() => {
-    if (user && user.role === 'coach') {
-      const coachData = coaches.find(c => c.id === user.id);
-      if (coachData) {
-        const updatedUser = { ...coachData, role: 'coach' };
-        if (JSON.stringify(updatedUser) !== JSON.stringify(user)) {
-          setUser(updatedUser);
-        }
-      }
-    }
-  }, [coaches, user]);
   const [attendance, setAttendance] = useState(() => JSON.parse(localStorage.getItem('najd_attendance') || '[]'));
   const [evals, setEvals] = useState(() => JSON.parse(localStorage.getItem('najd_evals') || '[]'));
   const [messages, setMessages] = useState(() => JSON.parse(localStorage.getItem('najd_messages') || '[]'));
@@ -730,6 +718,19 @@ export default function App() {
   const [players, setPlayers] = useState(() => JSON.parse(localStorage.getItem('najd_players') || '[]'));
   const [payments, setPayments] = useState(() => JSON.parse(localStorage.getItem('najd_payments') || '[]'));
   const [theme, setTheme] = useState(() => localStorage.getItem('najd_theme') || "dark");
+
+  // Sync logged-in user if their data (like perms) changes in the main list
+  useEffect(() => {
+    if (user && user.role === 'coach') {
+      const coachData = coaches.find(c => c.id === user.id);
+      if (coachData) {
+        const updatedUser = { ...coachData, role: 'coach' };
+        if (JSON.stringify(updatedUser) !== JSON.stringify(user)) {
+          setUser(updatedUser);
+        }
+      }
+    }
+  }, [coaches, user]);
 
   useEffect(() => {
     if (user) localStorage.setItem('najd_logged_user', JSON.stringify(user));
