@@ -742,7 +742,6 @@ export default function App() {
   useEffect(() => {
     if (API_URL) {
       const fetchData = async () => {
-        // Stop polling if user is admin (they make the changes) or if we just updated
         if (user?.role === 'admin') return; 
         if (Date.now() - lastLocalUpdate.current < 20000) return;
         
@@ -750,8 +749,22 @@ export default function App() {
           const res = await fetch(`${API_URL}/api/initial-data`);
           if (!res.ok) throw new Error("Fetch failed");
           const data = await res.json();
+          
+          if (data.coaches) {
+            // MERGE Logic: If we are an admin, we might have local changes not yet in DB
+            // But since we disabled polling for admin above, this mostly affects coaches.
+            setCoaches(prev => {
+              return data.coaches.map(remote => {
+                const local = prev.find(p => p.id === remote.id);
+                // If local has newer perms and we just updated, keep local perms
+                if (local && Date.now() - lastLocalUpdate.current < 20000) {
+                   return { ...remote, perms: local.perms };
+                }
+                return remote;
+              });
+            });
+          }
           if (data.players) setPlayers(data.players);
-          if (data.coaches) setCoaches(data.coaches);
           if (data.groups) setGroups(data.groups);
           if (data.payments) setPayments(data.payments);
           if (data.attendance) setAttendance(data.attendance);
@@ -765,7 +778,7 @@ export default function App() {
       };
       
       fetchData();
-      const interval = setInterval(fetchData, user?.role === 'admin' ? 60000 : 5000); // Admin polls rarely, others every 5s
+      const interval = setInterval(fetchData, user?.role === 'admin' ? 60000 : 5000); 
       return () => clearInterval(interval);
     }
   }, [user?.role]);
