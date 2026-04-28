@@ -677,7 +677,7 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {actions}
-          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.1.9</div>
+          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.2.0</div>
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -702,22 +702,30 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
 }
 
 /* ═══ ROOT APP ════════════════════════════════════════ */
-export default function App() {
-  const [user, setUser]         = useState(() => {
-    const saved = localStorage.getItem('najd_logged_user');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [attendance, setAttendance] = useState(() => JSON.parse(localStorage.getItem('najd_attendance') || '[]'));
-  const [evals, setEvals] = useState(() => JSON.parse(localStorage.getItem('najd_evals') || '[]'));
-  const [messages, setMessages] = useState(() => JSON.parse(localStorage.getItem('najd_messages') || '[]'));
-  const [prices, setPrices] = useState(() => JSON.parse(localStorage.getItem('najd_prices') || JSON.stringify(PRICE_LIST)));
-  const [trainings, setTrainings] = useState(() => JSON.parse(localStorage.getItem('najd_trainings') || '[]'));
-  const [coachesAttendance, setCoachesAttendance] = useState(() => JSON.parse(localStorage.getItem('najd_coachesAttendance') || '[]'));
+const safeParse = (key, fallback) => {
+  try {
+    const s = localStorage.getItem(key);
+    if (!s || s === "undefined") return fallback;
+    return JSON.parse(s);
+  } catch (e) {
+    console.error(`Error parsing ${key}:`, e);
+    return fallback;
+  }
+};
 
-  const [groups, setGroups] = useState(() => JSON.parse(localStorage.getItem('najd_groups') || '[]'));
-  const [coaches, setCoaches] = useState(() => JSON.parse(localStorage.getItem('najd_coaches') || '[]'));
-  const [players, setPlayers] = useState(() => JSON.parse(localStorage.getItem('najd_players') || '[]'));
-  const [payments, setPayments] = useState(() => JSON.parse(localStorage.getItem('najd_payments') || '[]'));
+export default function App() {
+  const [user, setUser]         = useState(() => safeParse('najd_logged_user', null));
+  const [attendance, setAttendance] = useState(() => safeParse('najd_attendance', []));
+  const [evals, setEvals] = useState(() => safeParse('najd_evals', []));
+  const [messages, setMessages] = useState(() => safeParse('najd_messages', []));
+  const [prices, setPrices] = useState(() => safeParse('najd_prices', PRICE_LIST));
+  const [trainings, setTrainings] = useState(() => safeParse('najd_trainings', []));
+  const [coachesAttendance, setCoachesAttendance] = useState(() => safeParse('najd_coachesAttendance', []));
+
+  const [groups, setGroups] = useState(() => safeParse('najd_groups', []));
+  const [coaches, setCoaches] = useState(() => safeParse('najd_coaches', []));
+  const [players, setPlayers] = useState(() => safeParse('najd_players', []));
+  const [payments, setPayments] = useState(() => safeParse('najd_payments', []));
   const [theme, setTheme] = useState(() => localStorage.getItem('najd_theme') || "dark");
   const [globalError, setGlobalError] = useState(null);
 
@@ -908,7 +916,7 @@ export default function App() {
         setPlayers(val);
       }
     },
-    parents: players.map(p => ({ id: p.parentId, name: `ولي أمر ${p.name}`, phone: p.phone, email: p.email })), 
+    parents: (players || []).filter(p => p && p.parentId).map(p => ({ id: p.parentId, name: `ولي أمر ${p.name}`, phone: p.phone, email: p.email })), 
     payments, 
     setPayments: (val) => {
       if (typeof val === 'function') {
@@ -1061,7 +1069,7 @@ export default function App() {
 
   if (globalError) return (
     <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.1.9)</h2>
+      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.2.0)</h2>
       <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
         <b>Error:</b> {globalError.message}
         <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{globalError.stack}</pre>
@@ -1111,7 +1119,7 @@ export default function App() {
   } catch (err) {
     return (
       <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.1.9)</h2>
+        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.2.0)</h2>
         <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
           <b>Error:</b> {err.message}
           <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{err.stack}</pre>
