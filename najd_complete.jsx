@@ -810,7 +810,7 @@ export default function App() {
   const t = THEMES[theme];
 
   const shared = { 
-    groups, setGroups, 
+    groups, 
     coaches,
     setCoaches: (val) => {
       if (typeof val === 'function') {
