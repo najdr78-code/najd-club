@@ -677,7 +677,7 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {actions}
-          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.1.5</div>
+          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.1.6</div>
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -2568,9 +2568,28 @@ function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coac
 /* ══════════════════════════════════════════════════════════
    PARENT PORTAL
 ══════════════════════════════════════════════════════════ */
-function ParentPortal({ user, onLogout, players, groups, coaches, parents, payments, attendance, evals = [], messages, setMessages, prices, trainings, t, forceRefresh }) {
-  const parent = (parents || []).find(p => String(p.id) == String(user.id)) || { name: user.name, id: user.id };
-  const myPlayers = (players || []).filter(p => String(p.parentId) == String(user.id));
+function ParentPortal({ 
+  user = {}, 
+  onLogout, 
+  players = [], 
+  groups = [], 
+  coaches = [], 
+  parents = [], 
+  payments = [], 
+  attendance = [], 
+  evals = [], 
+  messages = [], 
+  setMessages, 
+  prices = {}, 
+  trainings = [], 
+  t, 
+  forceRefresh 
+}) {
+  // 1. Identify the parent from the dynamic parents list
+  const parent = (parents || []).find(p => String(p.id) == String(user?.id)) || { name: user?.name, id: user?.id };
+  
+  // 2. Filter players by parentId
+  const myPlayers = (players || []).filter(p => String(p.parentId) == String(user?.id));
   
   const [activeChild, setActiveChild] = useState(myPlayers[0]?.id);
 
@@ -2579,15 +2598,16 @@ function ParentPortal({ user, onLogout, players, groups, coaches, parents, payme
       setActiveChild(myPlayers[0].id);
     }
   }, [myPlayers, activeChild]);
+
   const [tab, setTab] = useState("overview");
-  const unread = messages.filter(m => m.to === user.id && !m.read).length;
+  const unread = (messages || []).filter(m => String(m.to) == String(user?.id) && !m.read).length;
   
-    const child      = myPlayers.find(p => p.id === activeChild) || myPlayers[0];
-    const childGroup = child ? (groups || []).find(g => String(g.id) == String(child.groupId)) : null;
-    const childCoach = childGroup ? (coaches || []).find(c => String(c.id) == String(childGroup.coachId)) : null;
-    const childPays  = child ? (payments || []).filter(p => String(p.playerId) == String(child.id)) : [];
-    const childAtt   = child ? (attendance || []).filter(a => String(a.groupId) == String(child.groupId)) : [];
-    const childEvals = child ? (evals || []).filter(e => String(e.playerId) == String(child.id)) : [];
+  const child      = myPlayers.find(p => String(p.id) == String(activeChild)) || myPlayers[0];
+  const childGroup = child ? (groups || []).find(g => String(g.id) == String(child.groupId)) : null;
+  const childCoach = childGroup ? (coaches || []).find(c => String(c.id) == String(childGroup.coachId)) : null;
+  const childPays  = child ? (payments || []).filter(p => String(p.playerId) == String(child.id)) : [];
+  const childAtt   = child ? (attendance || []).filter(a => String(a.groupId) == String(child.groupId)) : [];
+  const childEvals = child ? (evals || []).filter(e => String(e.playerId) == String(child.id)) : [];
 
   // My coaches: find all unique coaches of my children
   const myCoachIds = [...new Set(myPlayers.map(p => {
@@ -2611,7 +2631,7 @@ function ParentPortal({ user, onLogout, players, groups, coaches, parents, payme
         <div style={{ display: "flex", gap: 8, marginBottom: 18, borderBottom: `1px solid ${t.border}`, paddingBottom: 14 }}>
           {myPlayers.map(p => (
             <button key={p.id} onClick={() => setActiveChild(p.id)}
-              style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid", borderColor: activeChild === p.id ? "#10B981" : t.border, background: activeChild === p.id ? "rgba(16,185,129,.12)" : t.bg2, color: activeChild === p.id ? "#10B981" : t.textDim, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Cairo',sans-serif" }}>
+              style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid", borderColor: String(activeChild) === String(p.id) ? "#10B981" : t.border, background: String(activeChild) === String(p.id) ? "rgba(16,185,129,.12)" : t.bg2, color: String(activeChild) === String(p.id) ? "#10B981" : t.textDim, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Cairo',sans-serif" }}>
               <Avatar name={p.name} size={22} color="#10B981"/>{p.name}
             </button>
           ))}
