@@ -1692,25 +1692,38 @@ function AdminPayments({ payments, setPayments, players, coaches, prices, t }) {
     });
   };
 
-  const save = () => {
+  const save = async () => {
     const player = players.find(p => p.id === form.playerId);
     const coach  = coaches.find(c => c.id === form.coachId);
     
     const newPayments = form.types.map(type => ({
       id: `pay${Date.now()}-${type}`,
       playerId: form.playerId,
-      playerName: player?.name || "",
       coachId: form.coachId,
       coachName: coach?.name || (form.coachId === "none" ? "الإدارة" : ""),
       type: type,
       amount: prices[type] || 0,
       month: form.month,
-      date: form.date,
+      date: new Date(form.date).toISOString(),
       note: form.note
     }));
 
-    setPayments(ps => [...ps, ...newPayments]);
+    setPayments(ps => [...newPayments, ...ps]);
     setModal(false);
+
+    if (API_URL) {
+      for (const p of newPayments) {
+        try {
+          await fetch(`${API_URL}/api/payments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(p)
+          });
+        } catch (e) {
+          console.error("Admin payment sync failed:", e);
+        }
+      }
+    }
   };
 
   const totalAmount = form.types.reduce((sum, type) => sum + (prices[type] || 0), 0);
@@ -1746,9 +1759,10 @@ function AdminPayments({ payments, setPayments, players, coaches, prices, t }) {
           <tbody>
             {filtered.slice().reverse().map(p => {
               const pt = PAY_TYPES[p.type];
+              const player = players.find(x => x.id === p.playerId);
               return (
                 <tr key={p.id} className={t.name === "dark" ? "rh" : "rhl"} style={{ borderBottom: `1px solid ${t.border}`, transition: "background .15s" }}>
-                  <td style={{ padding: "11px 14px", fontSize: 12, fontWeight: 600, color: t.text }}>{p.playerName}</td>
+                  <td style={{ padding: "11px 14px", fontSize: 12, fontWeight: 600, color: t.text }}>{player?.name || p.playerName || "—"}</td>
                   <td style={{ padding: "11px 14px" }}><Chip text={pt ? `${pt.icon} ${pt.label}` : p.type} color={pt?.color || "#7C49A8"}/></td>
                   <td style={{ padding: "11px 14px", fontSize: 12, color: t.textDim }}>{p.month}</td>
                   <td style={{ padding: "11px 14px", fontSize: 13, fontWeight: 800, color: pt?.color || "#10B981" }}>{fmtMoney(p.amount)}</td>
@@ -2408,8 +2422,8 @@ function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coac
       coachName: coach?.name || ""
     };
 
-    // Optimistic UI update (with name for display)
-    setPayments(ps => [{ ...paymentData, playerName: player?.name || "" }, ...ps]);
+    // Optimistic UI update
+    setPayments(ps => [paymentData, ...ps]);
     setModal(false);
 
     if (API_URL) {
@@ -2442,9 +2456,10 @@ function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coac
           <tbody>
             {myPays.map(p => {
               const pt = PAY_TYPES[p.type];
+              const player = myPlayers.find(x => x.id === p.playerId);
               return (
                 <tr key={p.id} className={t.name === "dark" ? "rh" : "rhl"} style={{ borderBottom: `1px solid ${t.border}`, transition: "background .15s" }}>
-                  <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: t.text }}>{p.playerName}</td>
+                  <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: t.text }}>{player?.name || p.playerName || "—"}</td>
                   <td style={{ padding: "10px 14px" }}><Chip text={`${pt.icon} ${pt.label}`} color={pt.color}/></td>
                   <td style={{ padding: "10px 14px", fontSize: 12, color: t.textDim }}>{p.month}</td>
                   <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 800, color: pt.color }}>{fmtMoney(p.amount)}</td>
