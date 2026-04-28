@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,43 +7,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  ADMIN
-  COACH
-  PARENT
-  PLAYER
-}
-
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      Role     @default(PARENT)
-  phone     String?
-  createdAt DateTime @default(now())
-
-  // Relations
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  name          String
+  role          Role     @default(PARENT)
+  phone         String?
+  createdAt     DateTime @default(now())
   coachProfile  Coach?
   parentProfile Parent?
   playerProfile Player?
 }
 
 model Coach {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  specialty String?
-  exp       Int?
-  cert      String?
-  salary    Float?
-  groupId   String?  @unique
-  group     Group?   @relation("GroupCoach", fields: [groupId], references: [id])
-  
-  attendance Attendance[]
+  id          String       @id @default(cuid())
+  userId      String       @unique
+  specialty   String?
+  exp         Int?
+  cert        String?
+  salary      Float?
+  groupId     String?      @unique
+  perms       Json?
+  attendance  Attendance[]
+  group       Group?       @relation("GroupCoach", fields: [groupId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
   evaluations Evaluation[]
   trainings   Training[]
-  perms       Json?    // { "attendance": true, "payments": false, ... }
 }
 
 model Parent {
@@ -57,53 +44,47 @@ model Parent {
 }
 
 model Player {
-  id            String   @id @default(cuid())
-  userId        String?  @unique
-  user          User?    @relation(fields: [userId], references: [id])
+  id            String       @id @default(cuid())
+  userId        String?      @unique
   name          String
   age           Int
   phone         String?
-  status        String   @default("نشط")
+  status        String       @default("نشط")
   position      String?
   weight        Float?
   height        Float?
-  joinDate      DateTime @default(now())
-  
-  // Stats
-  score         Int      @default(80)
-  speed         Int      @default(75)
-  stamina       Int      @default(75)
-  technique     Int      @default(75)
-  teamwork      Int      @default(75)
-  goals         Int      @default(0)
-  assists       Int      @default(0)
-  attendancePct Int      @default(90)
-
+  joinDate      DateTime     @default(now())
+  score         Int          @default(80)
+  speed         Int          @default(75)
+  stamina       Int          @default(75)
+  technique     Int          @default(75)
+  teamwork      Int          @default(75)
+  goals         Int          @default(0)
+  assists       Int          @default(0)
+  attendancePct Int          @default(90)
   groupId       String
-  group         Group    @relation(fields: [groupId], references: [id])
   parentId      String
-  parent        Parent   @relation(fields: [parentId], references: [id])
-  
-  payments      Payment[]
   evaluations   Evaluation[]
+  payments      Payment[]
+  group         Group        @relation(fields: [groupId], references: [id])
+  parent        Parent       @relation(fields: [parentId], references: [id])
+  user          User?        @relation(fields: [userId], references: [id])
 }
 
 model Group {
-  id        String   @id @default(cuid())
-  name      String
-  color     String   @default("#06B6D4")
-  coachId   String?  @unique
-  coach     Coach?   @relation("GroupCoach")
-  players   Player[]
-  trainings Training[]
+  id         String       @id @default(cuid())
+  name       String
+  color      String       @default("#06B6D4")
+  coachId    String?      @unique
   attendance Attendance[]
+  coach      Coach?       @relation("GroupCoach")
+  players    Player[]
+  trainings  Training[]
 }
 
 model Payment {
   id         String   @id @default(cuid())
   playerId   String
-  player     Player   @relation(fields: [playerId], references: [id])
-  playerName String?
   coachId    String?
   coachName  String?
   type       String
@@ -111,50 +92,50 @@ model Payment {
   amount     Float
   date       DateTime @default(now())
   note       String?
+  playerName String?
+  player     Player   @relation(fields: [playerId], references: [id])
 }
 
 model Attendance {
-  id        String   @id @default(cuid())
-  date      DateTime
-  groupId   String
-  group     Group    @relation(fields: [groupId], references: [id])
-  coachId   String?
-  coach     Coach?   @relation(fields: [coachId], references: [id])
-  records   Json     // { "playerId": "حاضر", ... }
+  id      String   @id @default(cuid())
+  date    DateTime
+  groupId String
+  coachId String?
+  records Json
+  coach   Coach?   @relation(fields: [coachId], references: [id])
+  group   Group    @relation(fields: [groupId], references: [id])
 }
 
 model Evaluation {
   id        String   @id @default(cuid())
   playerId  String
-  player    Player   @relation(fields: [playerId], references: [id])
   coachId   String
-  coach     Coach    @relation(fields: [coachId], references: [id])
   date      DateTime @default(now())
   note      String?
   speed     Int
   technique Int
   teamwork  Int
+  coach     Coach    @relation(fields: [coachId], references: [id])
+  player    Player   @relation(fields: [playerId], references: [id])
 }
 
 model Message {
-  id         String   @id @default(cuid())
-  from       String
-  to         String
-  fromName   String
-  toName     String
-  text       String
-  files      Json?
-  date       DateTime @default(now())
-  read       Boolean  @default(false)
+  id       String   @id @default(cuid())
+  fromName String
+  toName   String
+  text     String
+  date     DateTime @default(now())
+  read     Boolean  @default(false)
+  files    Json?
+  from     String
+  to       String
 }
 
 model Training {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   groupId       String
-  group         Group    @relation(fields: [groupId], references: [id])
   coachId       String
-  coach         Coach    @relation(fields: [coachId], references: [id])
-  days          String[] // ["الأحد", "الأربعاء"]
+  days          String[]
   time          String
   duration      Int
   field         String
@@ -162,4 +143,13 @@ model Training {
   trainingFocus String?
   note          String?
   date          DateTime?
+  coach         Coach     @relation(fields: [coachId], references: [id])
+  group         Group     @relation(fields: [groupId], references: [id])
+}
+
+enum Role {
+  ADMIN
+  COACH
+  PARENT
+  PLAYER
 }

@@ -677,7 +677,7 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {actions}
-          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.1.6</div>
+          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.1.7</div>
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -2709,7 +2709,7 @@ function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, 
           <div style={{ fontSize: 26, fontWeight: 900, color: "#10B981", marginBottom: 4 }}>{fmtMoney(totalPaid)}</div>
           <div style={{ fontSize: 11, color: t.textDim, marginBottom: 14 }}>إجمالي ما تم دفعه</div>
           {childPays.slice(-3).map(p => {
-            const pt = PAY_TYPES[p.type];
+            const pt = PAY_TYPES[p.type] || { label: "أخرى", icon: "💰", color: "#7C49A8" };
             return (
               <div key={p.id} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${t.border}`, fontSize: 12 }}>
                 <span style={{ color: t.textDim }}>{pt.icon} {pt.label} · {p.month}</span>
