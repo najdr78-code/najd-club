@@ -709,9 +709,12 @@ export default function App() {
   // Sync logged-in user if their data (like perms) changes in the main list
   useEffect(() => {
     if (user && user.role === 'coach') {
-      const updated = coaches.find(c => c.id === user.id);
-      if (updated && JSON.stringify(updated) !== JSON.stringify(user)) {
-        setUser({ ...updated, role: 'coach' });
+      const coachData = coaches.find(c => c.id === user.id);
+      if (coachData) {
+        const updatedUser = { ...coachData, role: 'coach' };
+        if (JSON.stringify(updatedUser) !== JSON.stringify(user)) {
+          setUser(updatedUser);
+        }
       }
     }
   }, [coaches, user]);
@@ -787,18 +790,20 @@ export default function App() {
   useEffect(() => {
     const handleStorage = (e) => {
       try {
-        if (e.key === 'najd_players') setPlayers(JSON.parse(e.newValue));
-        if (e.key === 'najd_coaches') setCoaches(JSON.parse(e.newValue));
-        if (e.key === 'najd_groups') setGroups(JSON.parse(e.newValue));
-        if (e.key === 'najd_payments') setPayments(JSON.parse(e.newValue));
-        if (e.key === 'najd_attendance') setAttendance(JSON.parse(e.newValue));
-        if (e.key === 'najd_coachesAttendance') setCoachesAttendance(JSON.parse(e.newValue));
-        if (e.key === 'najd_evals') setEvals(JSON.parse(e.newValue));
-        if (e.key === 'najd_messages') setMessages(JSON.parse(e.newValue));
-        if (e.key === 'najd_prices') setPrices(JSON.parse(e.newValue));
-        if (e.key === 'najd_trainings') setTrainings(JSON.parse(e.newValue));
+        if (!e.newValue) return;
+        const val = JSON.parse(e.newValue);
+        if (e.key === 'najd_players') setPlayers(val);
+        if (e.key === 'najd_coaches') setCoaches(val);
+        if (e.key === 'najd_groups') setGroups(val);
+        if (e.key === 'najd_payments') setPayments(val);
+        if (e.key === 'najd_attendance') setAttendance(val);
+        if (e.key === 'najd_coachesAttendance') setCoachesAttendance(val);
+        if (e.key === 'najd_evals') setEvals(val);
+        if (e.key === 'najd_messages') setMessages(val);
+        if (e.key === 'najd_prices') setPrices(val);
+        if (e.key === 'najd_trainings') setTrainings(val);
         if (e.key === 'najd_theme') setTheme(e.newValue);
-        if (e.key === 'najd_logged_user') setUser(JSON.parse(e.newValue));
+        if (e.key === 'najd_logged_user') setUser(val);
       } catch (err) {
         console.error("Storage sync error:", err);
       }
