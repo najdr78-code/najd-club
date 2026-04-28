@@ -663,7 +663,7 @@ function LoginPage({ onLogin, players = [], coaches = [], t }) {
 }
 
 /* ═══ SHELL ═══════════════════════════════════════════ */
-function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, onLogout, badge, user, t, children }) {
+function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, onLogout, badge, user, t, children, actions }) {
   const theme = t || THEMES.dark;
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: theme.bg }}>
@@ -676,6 +676,7 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {actions}
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -1091,7 +1092,7 @@ export default function App() {
 /* ══════════════════════════════════════════════════════════
    ADMIN PORTAL
 ══════════════════════════════════════════════════════════ */
-function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, players, setPlayers, parents, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, messages, setMessages, prices, setPrices, trainings, setTrainings, t }) {
+function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, players, setPlayers, parents, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, messages, setMessages, prices, setPrices, trainings, setTrainings, t, forceRefresh }) {
   const [tab, setTab] = useState("overview");
   const tabs = [
     { id: "overview",     icon: "dashboard",    label: "نظرة عامة"   },
@@ -2460,7 +2461,7 @@ function CoachEval({ coachId, coachName, myPlayers, evals, setEvals, t }) {
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}><Btn onClick={() => setModal(true)}><AnimIcon type="plus" size={14} color="#fff"/> إضافة تقييم</Btn></div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {(evals || []).slice().reverse().map(e => {
-          const p = players.find(x => String(x.id) == String(e.playerId));
+          const p = myPlayers.find(x => String(x.id) == String(e.playerId));
           return (
             <Card key={e.id} t={t} style={{ padding: 18 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
