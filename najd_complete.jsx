@@ -1996,14 +1996,20 @@ function AdminPrices({ prices, setPrices, t }) {
 
 function AdminTrainings({ trainings, setTrainings, groups, coaches, t }) {
   const [modal, setModal] = useState(false);
-  const empty = { groupId: groups[0]?.id, coachId: groups[0]?.coachId, days: [], time: "4:00 م", duration: 90, field: "ملعب A", title: "", trainingFocus: "", note: "" };
+  const empty = { groupId: groups[0]?.id || "", coachId: groups[0]?.coachId || "", days: [], time: "4:00 م", duration: 90, field: "ملعب A", title: "", trainingFocus: "", note: "" };
   const [form, setForm] = useState(empty);
-  const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
+  const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
-  const save = () => {
-    setTrainings(ts => [...ts, { ...form, id: `tr${Date.now()}` }]);
+    const nextTrData = { 
+      ...form, 
+      id: `tr${Date.now()}`,
+      // Ensure IDs are valid strings for DB
+      groupId: String(form.groupId),
+      coachId: String(form.coachId)
+    };
+    setTrainings(ts => [...ts, nextTrData]);
     setModal(false);
-  };
+    console.log("Training Created:", nextTrData);
 
   const handleGroupChange = (gid) => {
     const group = groups.find(g => g.id === gid);
@@ -2067,12 +2073,9 @@ function AdminTrainings({ trainings, setTrainings, groups, coaches, t }) {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Input label="التاريخ (اختياري)" value={form.date || ""} onChange={v => setForm(f => ({ ...f, date: v }))} type="date" t={t}/>
-            <Input label="الوقت" value={form.time} onChange={v => setForm(f => ({ ...f, time: v }))} t={t}/>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Input label="الوقت" value={form.time} onChange={v => setForm(f => ({ ...f, time: v }))} t={t}/>
             <Input label="المدة (دقيقة)" value={form.duration} onChange={v => setForm(f => ({ ...f, duration: +v }))} type="number" t={t}/>
           </div>
+          <Input label="الوقت" value={form.time} onChange={v => setForm(f => ({ ...f, time: v }))} t={t}/>
           <Input label="الملعب" value={form.field} onChange={v => setForm(f => ({ ...f, field: v }))} t={t}/>
           <Input label="تركيز التدريب (المهارة)" value={form.trainingFocus} onChange={v => setForm(f => ({ ...f, trainingFocus: v }))} placeholder="مثال: تمرير قصير" t={t}/>
           <Input label="ملاحظات" value={form.note} onChange={v => setForm(f => ({ ...f, note: v }))} placeholder="اختياري" t={t}/>
@@ -2235,10 +2238,31 @@ function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPa
 
 /* ── Coach Home ─────────────────────────────────────── */
 function CoachHome({ coach, group, groups, myPlayers, attendance, evals, trainings, t }) {
+  if (!coach) return null;
   const lastAtt = attendance.filter(a => a.coachId === coach.id).slice(-1)[0];
   const avgScore = myPlayers.length ? Math.round(myPlayers.reduce((a, p) => a + p.score, 0) / myPlayers.length) : 0;
   const myTrainings = trainings.filter(tr => tr.groupId === coach.groupId);
-  const nextTr = myTrainings[0];
+  
+  // Improved: Find the closest training session by checking ALL days in tr.days
+  const dayMap = { "الأحد": 0, "الاثنين": 1, "الثلاثاء": 2, "الأربعاء": 3, "الخميس": 4, "الجمعة": 5, "السبت": 6 };
+  const now = new Date();
+  const today = now.getDay(); 
+  
+  let nextTr = null;
+  let minDiff = 8;
+
+  myTrainings.forEach(tr => {
+    tr.days.forEach(d => {
+      const targetDay = dayMap[d];
+      if (targetDay === undefined) return;
+      let diff = targetDay - today;
+      if (diff < 0) diff += 7;
+      if (diff < minDiff) {
+        minDiff = diff;
+        nextTr = tr;
+      }
+    });
+  });
   
   return (
     <div>
@@ -2311,7 +2335,7 @@ function CoachHome({ coach, group, groups, myPlayers, attendance, evals, trainin
 
 /* ── Coach Sessions ─────────────────────────────────── */
 function CoachSessions({ coach, group, groups, trainings, t }) {
-  if (!group) return <div style={{ textAlign: "center", color: t.textFaint, padding: 60 }}>لا توجد مجموعة محددة</div>;
+  if (!coach || !group) return <div style={{ textAlign: "center", color: t.textFaint, padding: 60 }}>لا توجد مجموعة محددة</div>;
   const myTrainings = trainings.filter(tr => tr.groupId === coach.groupId);
   
   return (
