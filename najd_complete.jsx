@@ -742,23 +742,15 @@ export default function App() {
   useEffect(() => {
     if (API_URL) {
       const fetchData = async () => {
-        if (Date.now() - lastLocalUpdate.current < 20000) return; // Skip if we just updated locally
+        // Stop polling if user is admin (they make the changes) or if we just updated
+        if (user?.role === 'admin') return; 
+        if (Date.now() - lastLocalUpdate.current < 20000) return;
+        
         try {
           const res = await fetch(`${API_URL}/api/initial-data`);
           if (!res.ok) throw new Error("Fetch failed");
           const data = await res.json();
-          if (data.players) {
-            const repaired = data.players.map(p => {
-              if (p.email && p.password) return p;
-              const phone = p.phone || "0500000000";
-              return { 
-                ...p, 
-                email: p.email || `najd_${phone}@najd.sa`,
-                password: p.password || `najd_${phone.slice(-4)}`
-              };
-            });
-            setPlayers(repaired);
-          }
+          if (data.players) setPlayers(data.players);
           if (data.coaches) setCoaches(data.coaches);
           if (data.groups) setGroups(data.groups);
           if (data.payments) setPayments(data.payments);
@@ -773,10 +765,10 @@ export default function App() {
       };
       
       fetchData();
-      const interval = setInterval(fetchData, 15000); // Poll every 15s
+      const interval = setInterval(fetchData, user?.role === 'admin' ? 60000 : 5000); // Admin polls rarely, others every 5s
       return () => clearInterval(interval);
     }
-  }, []);
+  }, [user?.role]);
 
   useEffect(() => {
     localStorage.setItem('najd_players', JSON.stringify(players));
@@ -826,31 +818,7 @@ export default function App() {
   const shared = { 
     groups, 
     coaches,
-    setCoaches: (val) => {
-      if (typeof val === 'function') {
-        setCoaches(prev => {
-          const next = val(prev);
-          lastLocalUpdate.current = Date.now();
-          if (API_URL) {
-            const updated = next.filter(c => {
-              const old = prev.find(x => x.id === c.id);
-              return old && JSON.stringify(old) !== JSON.stringify(c);
-            });
-            const added = next.filter(c => !prev.find(x => x.id === c.id));
-            [...added, ...updated].forEach(c => {
-              fetch(`${API_URL}/api/coaches`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(c)
-              }).catch(console.error);
-            });
-          }
-          return next;
-        });
-      } else {
-        setCoaches(val);
-      }
-    },
+    setCoaches,
     players, 
     setPlayers: (val) => {
       if (typeof val === 'function') {
@@ -1327,14 +1295,29 @@ function AdminCoaches({ coaches, setCoaches, groups, players, payments, t }) {
 
   const save = async () => {
     if (!form.name.trim()) return;
-    let newCoach = { ...form };
+    let coachData = { ...form };
     if (modal === "add") {
       const id = `c${Date.now()}`;
       const email = `${form.name.split(" ")[0].toLowerCase()}${Math.floor(Math.random()*1000)}@najd.sa`;
       const password = `Najd@${Math.floor(Math.random()*9000)+1000}`;
-      setCoaches(c => [...c, { ...form, id, email, password, joined: new Date().toISOString().split("T")[0] }]);
+      coachData = { ...form, id, email, password, joined: new Date().toISOString().split("T")[0] };
+      setCoaches(c => [...c, coachData]);
+    } else {
+      setCoaches(c => c.map(x => x.id === form.id ? form : x));
     }
-    else setCoaches(c => c.map(x => x.id === form.id ? form : x));
+    
+    if (API_URL) {
+      try {
+        await fetch(`${API_URL}/api/coaches`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(coachData)
+        });
+      } catch (e) {
+        console.error("Coach save failed:", e);
+      }
+    }
+    
     setModal(null);
     if (sel) setSel(null);
   };
