@@ -677,7 +677,7 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {actions}
-          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.2.3</div>
+          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.2.4</div>
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -1069,7 +1069,7 @@ export default function App() {
 
   if (globalError) return (
     <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.2.3)</h2>
+      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.2.4)</h2>
       <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
         <b>Error:</b> {globalError.message}
         <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{globalError.stack}</pre>
@@ -1125,7 +1125,7 @@ export default function App() {
   } catch (err) {
     return (
       <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.2.3)</h2>
+        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.2.4)</h2>
         <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
           <b>Error:</b> {err.message}
           <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{err.stack}</pre>
@@ -2633,27 +2633,11 @@ function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coac
    PARENT PORTAL
 ══════════════════════════════════════════════════════════ */
 function ParentPortal({ 
-  user = {}, 
-  onLogout, 
-  players = [], 
-  groups = [], 
-  coaches = [], 
-  parents = [], 
-  payments = [], 
-  attendance = [], 
-  evals = [], 
-  messages = [], 
-  setMessages, 
-  prices = {}, 
-  trainings = [], 
-  t, 
-  forceRefresh 
-}) {
   // 1. Identify the parent from the dynamic parents list
-  const parent = (parents || []).find(p => String(p.id) == String(user?.id)) || { name: user?.name, id: user?.id };
+  const parent = (parents || []).find(p => p && String(p.id) == String(user?.id)) || { name: user?.name, id: user?.id };
   
   // 2. Filter players by parentId
-  const myPlayers = (players || []).filter(p => String(p.parentId) == String(user?.id));
+  const myPlayers = (players || []).filter(p => p && String(p.parentId) == String(user?.id));
   
   const [activeChild, setActiveChild] = useState(myPlayers[0]?.id);
 
@@ -2664,18 +2648,19 @@ function ParentPortal({
   }, [myPlayers, activeChild]);
 
   const [tab, setTab] = useState("overview");
-  const unread = (messages || []).filter(m => String(m.to) == String(user?.id) && !m.read).length;
+  const unread = (messages || []).filter(m => m && String(m.to) == String(user?.id) && !m.read).length;
   
-  const child      = myPlayers.find(p => String(p.id) == String(activeChild)) || myPlayers[0];
-  const childGroup = child ? (groups || []).find(g => String(g.id) == String(child.groupId)) : null;
-  const childCoach = childGroup ? (coaches || []).find(c => String(c.id) == String(childGroup.coachId)) : null;
-  const childPays  = child ? (payments || []).filter(p => String(p.playerId) == String(child.id)) : [];
-  const childAtt   = child ? (attendance || []).filter(a => String(a.groupId) == String(child.groupId)) : [];
-  const childEvals = child ? (evals || []).filter(e => String(e.playerId) == String(child.id)) : [];
+  const child      = myPlayers.find(p => p && String(p.id) == String(activeChild)) || myPlayers[0];
+  const childGroup = child ? (groups || []).find(g => g && String(g.id) == String(child.groupId)) : null;
+  const childCoach = childGroup ? (coaches || []).find(c => c && String(c.id) == String(childGroup.coachId)) : null;
+  const childPays  = child ? (payments || []).filter(p => p && String(p.playerId) == String(child.id)) : [];
+  const childAtt   = child ? (attendance || []).filter(a => a && String(a.groupId) == String(child.groupId)) : [];
+  const childEvals = child ? (evals || []).filter(e => e && String(e.playerId) == String(child.id)) : [];
 
   // My coaches: find all unique coaches of my children
   const myCoachIds = [...new Set(myPlayers.map(p => {
-    const g = (groups || []).find(x => String(x.id) == String(p.groupId));
+    if (!p) return null;
+    const g = (groups || []).find(x => x && String(x.id) == String(p.groupId));
     return g?.coachId;
   }).filter(Boolean))];
 
