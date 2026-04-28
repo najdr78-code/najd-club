@@ -836,13 +836,49 @@ export default function App() {
   const shared = { 
     groups, 
     coaches,
-    setCoaches,
+    setCoaches: (val) => {
+      if (typeof val === 'function') {
+        setCoaches(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          if (API_URL) {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
+              fetch(`${API_URL}/api/coaches`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setCoaches(val);
+      }
+    },
     players, 
     setPlayers: (val) => {
       if (typeof val === 'function') {
         setPlayers(prev => {
           const next = val(prev);
           setLastUpdate();
+          if (API_URL) {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
+              fetch(`${API_URL}/api/players`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              }).catch(console.error);
+            });
+          }
           return next;
         });
       } else {
@@ -854,6 +890,19 @@ export default function App() {
         setGroups(prev => {
           const next = val(prev);
           setLastUpdate();
+          if (API_URL) {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
+              fetch(`${API_URL}/api/groups`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              }).catch(console.error);
+            });
+          }
           return next;
         });
       } else {
@@ -868,12 +917,15 @@ export default function App() {
           const next = val(prev);
           setLastUpdate();
           if (API_URL) {
-            const added = next.filter(p => !prev.find(x => x.id === p.id));
-            added.forEach(p => {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
               fetch(`${API_URL}/api/payments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(p)
+                body: JSON.stringify(item)
               }).catch(console.error);
             });
           }
@@ -890,12 +942,15 @@ export default function App() {
           const next = val(prev);
           setLastUpdate();
           if (API_URL) {
-            const added = next.filter(a => !prev.find(x => x.id === a.id));
-            added.forEach(a => {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
               fetch(`${API_URL}/api/attendance`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(a)
+                body: JSON.stringify(item)
               }).catch(console.error);
             });
           }
@@ -924,12 +979,15 @@ export default function App() {
           const next = val(prev);
           setLastUpdate();
           if (API_URL) {
-            const added = next.filter(e => !prev.find(x => x.id === e.id));
-            added.forEach(e => {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
               fetch(`${API_URL}/api/evaluations`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(e)
+                body: JSON.stringify(item)
               }).catch(console.error);
             });
           }
@@ -946,12 +1004,15 @@ export default function App() {
           const next = val(prev);
           setLastUpdate();
           if (API_URL) {
-            const added = next.filter(m => !prev.find(x => x.id === m.id));
-            added.forEach(m => {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
               fetch(`${API_URL}/api/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(m)
+                body: JSON.stringify(item)
               }).catch(console.error);
             });
           }
@@ -969,12 +1030,15 @@ export default function App() {
           const next = val(prev);
           setLastUpdate();
           if (API_URL) {
-            const added = next.filter(t => !prev.find(x => x.id === t.id));
-            added.forEach(t => {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
               fetch(`${API_URL}/api/trainings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(t)
+                body: JSON.stringify(item)
               }).catch(console.error);
             });
           }
@@ -1053,7 +1117,7 @@ function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, p
       {tab === "players"   && <AdminPlayers players={players} setPlayers={setPlayers} groups={groups} parents={parents} t={t} />}
       {tab === "payments"  && <AdminPayments payments={payments} setPayments={setPayments} players={players} coaches={coaches} prices={prices} t={t} />}
       {tab === "prices"    && <AdminPrices prices={prices} setPrices={setPrices} t={t} />}
-      {tab === "schedule"  && <AdminTrainings trainings={trainings} setTrainings={setTrainings} groups={groups} coaches={coaches} t={t} />}
+      {tab === "schedule"  && <AdminTrainings trainings={trainings} setTrainings={setTrainings} groups={groups} coaches={coaches} t={t} setLastUpdate={setLastUpdate}/>}
       {tab === "messages"  && <Messaging messages={messages} setMessages={setMessages} meId="admin" meName="الإدارة" coaches={coaches} parents={parents} t={t} setLastUpdate={setLastUpdate}/>}
     </Shell>
   );
