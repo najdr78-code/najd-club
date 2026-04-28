@@ -677,7 +677,7 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {actions}
-          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.3.2</div>
+          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.4.0</div>
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -728,6 +728,12 @@ export default function App() {
   const [payments, setPayments] = useState(() => safeParse('najd_payments', []));
   const [theme, setTheme] = useState(() => localStorage.getItem('najd_theme') || "dark");
   const [globalError, setGlobalError] = useState(null);
+
+  // Global debug logger
+  useEffect(() => {
+    console.log("App mounted - Debugging enabled");
+    window.onerror = (msg, url, line) => console.error(`Error: ${msg} at ${url}:${line}`);
+  }, []);
 
   // Global error listener for remote debugging
   useEffect(() => {
@@ -1074,7 +1080,7 @@ export default function App() {
 
   if (globalError) return (
     <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.3.2)</h2>
+      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.4.0)</h2>
       <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
         <b>Error:</b> {globalError.message}
         <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{globalError.stack}</pre>
@@ -1130,7 +1136,7 @@ export default function App() {
   } catch (err) {
     return (
       <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.3.2)</h2>
+        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.4.0)</h2>
         <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
           <b>Error:</b> {err.message}
           <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{err.stack}</pre>
@@ -2645,7 +2651,7 @@ function ParentPortal(props) {
       onLogout, 
       players = [], 
       groups = [], 
-      coaches = [], 
+      coaches: coachesList = [], 
       parents = [], 
       payments = [], 
       attendance = [], 
@@ -2680,7 +2686,7 @@ function ParentPortal(props) {
   
   const child      = myPlayers.find(p => p && String(p.id) == String(activeChild)) || myPlayers[0];
   const childGroup = child ? (groups || []).find(g => g && String(g.id) == String(child.groupId)) : null;
-  const childCoach = childGroup ? (coaches || []).find(c => c && String(c.id) == String(childGroup.coachId)) : null;
+  const childCoach = childGroup ? (coachesList || []).find(c => c && String(c.id) == String(childGroup.coachId)) : null;
   const childPays  = child ? (payments || []).filter(p => p && String(p.playerId) == String(child.id)) : [];
   const childAtt   = child ? (attendance || []).filter(a => a && String(a.groupId) == String(child.groupId)) : [];
   const childEvals = child ? (evals || []).filter(e => e && String(e.playerId) == String(child.id)) : [];
@@ -2714,17 +2720,17 @@ function ParentPortal(props) {
           ))}
         </div>
       )}
-      {tab === "overview"   && <ParentOverview child={child} childGroup={childGroup} childCoach={childCoach} childPays={childPays} childEvals={childEvals} prices={prices} coaches={coaches} t={t} userId={user.id}/>}
+      {tab === "overview"   && <ParentOverview child={child} childGroup={childGroup} childCoach={childCoach} childPays={childPays} childEvals={childEvals} prices={prices} coachesList={coachesList} t={t} userId={user.id}/>}
       {tab === "scores"     && <ParentScores child={child} childEvals={childEvals} childCoach={childCoach} t={t}/>}
       {tab === "attendance" && <ParentAttendance child={child} childAtt={childAtt} t={t}/>}
       {tab === "payments"   && <ParentPayments child={child} childPays={childPays} prices={prices} t={t}/>}
       {tab === "schedule"   && <ParentSchedule childGroup={childGroup} childCoach={childCoach} trainings={trainings} t={t}/>}
-      {tab === "messages"   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={parent.name} coaches={coaches} parents={parents} players={players} t={t} role="parent" myCoachIds={myCoachIds} />}
+      {tab === "messages"   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={parent?.name || user?.name} coaches={coachesList} parents={parents} players={players} t={t} role="parent" myCoachIds={myCoachIds} />}
     </Shell>
   );
 }
 
-function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, prices, coaches, t, userId }) {
+function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, prices, coachesList, t, userId }) {
   if (!child) return (
     <div style={{ textAlign: "center", color: t.textFaint, padding: 60 }}>
       <div style={{ fontSize: 40, marginBottom: 20 }}>🔍</div>
