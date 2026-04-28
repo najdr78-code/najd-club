@@ -147,13 +147,17 @@ app.post('/api/attendance', async (req, res) => {
 app.post('/api/coaches', async (req, res) => {
   const c = req.body;
   try {
-    await prisma.user.update({
-      where: { id: c.userId },
-      data: { email: c.email, password: c.password, name: c.name }
+    // 1. Upsert User
+    const user = await prisma.user.upsert({
+      where: { email: c.email },
+      update: { password: c.password, name: c.name },
+      create: { email: c.email, password: c.password, name: c.name, role: 'COACH' }
     });
-    const coach = await prisma.coach.update({
-      where: { id: c.id },
-      data: { specialty: c.specialty, perms: c.perms, groupId: c.groupId }
+    // 2. Upsert Coach
+    const coach = await prisma.coach.upsert({
+      where: { id: c.id || 'new' },
+      update: { specialty: c.specialty, perms: c.perms, groupId: c.groupId, userId: user.id },
+      create: { id: c.id, specialty: c.specialty, perms: c.perms, groupId: c.groupId, userId: user.id }
     });
     res.json(coach);
   } catch (e) {

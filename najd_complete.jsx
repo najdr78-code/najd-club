@@ -1314,6 +1314,7 @@ function AdminTeams({ groups, setGroups, coaches, players, t }) {
 function AdminCoaches({ coaches, setCoaches, groups, players, payments, t }) {
   const [sel, setSel] = useState(null);
   const [modal, setModal] = useState(null);
+  const [syncing, setSyncing] = useState(null);
   const empty = { name: "", phone: "", email: "", password: "", specialty: "", exp: 0, cert: "", groupId: "", salary: 0, perms: { ...DEFAULT_PERMS } };
   const [form, setForm] = useState(empty);
 
@@ -1324,8 +1325,9 @@ function AdminCoaches({ coaches, setCoaches, groups, players, payments, t }) {
     { key: "messages",   label: "إرسال واستقبال الرسائل", icon: "messages" },
   ];
 
-  const save = () => {
+  const save = async () => {
     if (!form.name.trim()) return;
+    let newCoach = { ...form };
     if (modal === "add") {
       const id = `c${Date.now()}`;
       const email = `${form.name.split(" ")[0].toLowerCase()}${Math.floor(Math.random()*1000)}@najd.sa`;
@@ -1337,14 +1339,28 @@ function AdminCoaches({ coaches, setCoaches, groups, players, payments, t }) {
     if (sel) setSel(null);
   };
 
-  const togglePerm = (coachId, permKey) => {
-    setCoaches(cs => cs.map(c => {
-      if (c.id === coachId) {
-        const currentPerms = { ...DEFAULT_PERMS, ...(c.perms || {}) };
-        return { ...c, perms: { ...currentPerms, [permKey]: !currentPerms[permKey] } };
+  const togglePerm = async (coachId, permKey) => {
+    setSyncing(`${coachId}_${permKey}`);
+    const coach = coaches.find(c => c.id === coachId);
+    if (!coach) return;
+    
+    const currentPerms = { ...DEFAULT_PERMS, ...(coach.perms || {}) };
+    const newPerms = { ...currentPerms, [permKey]: !currentPerms[permKey] };
+    
+    setCoaches(prev => prev.map(c => c.id === coachId ? { ...c, perms: newPerms } : c));
+    
+    if (API_URL) {
+      try {
+        await fetch(`${API_URL}/api/coaches`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...coach, perms: newPerms })
+        });
+      } catch (e) {
+        console.error("Save failed:", e);
       }
-      return c;
-    }));
+    }
+    setSyncing(null);
   };
 
   if (sel) {
@@ -1397,8 +1413,17 @@ function AdminCoaches({ coaches, setCoaches, groups, players, payments, t }) {
                     </div>
                     {/* Toggle */}
                     <button onClick={() => togglePerm(c.id, key)}
-                      style={{ width: 42, height: 22, borderRadius: 11, border: "none", cursor: "pointer", transition: "all .25s", background: enabled ? "#10B981" : t.border, position: "relative", flexShrink: 0 }}>
+                      disabled={syncing === `${c.id}_${key}`}
+                      style={{ 
+                        width: 42, height: 22, borderRadius: 11, border: "none", 
+                        cursor: syncing ? "not-allowed" : "pointer", 
+                        transition: "all .25s", 
+                        background: enabled ? "#10B981" : t.border, 
+                        position: "relative", flexShrink: 0,
+                        opacity: syncing === `${c.id}_${key}` ? 0.6 : 1
+                      }}>
                       <div style={{ position: "absolute", top: 3, right: enabled ? 3 : 21, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "right .25s", boxShadow: "0 1px 4px rgba(0,0,0,.2)" }}/>
+                      {syncing === `${c.id}_${key}` && <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 10, height: 10, border: "2px solid #fff", borderTopColor: "transparent", borderRadius: "50%", animation: "spin .8s linear infinite" }} /></div>}
                     </button>
                   </div>
                 );
@@ -2008,7 +2033,11 @@ function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPa
     return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: t.bg, color: t.textDim }}>جاري تحميل بيانات المدرب...</div>;
   }
   
-  const perms = { ...DEFAULT_PERMS, ...(coach?.perms || {}) };
+  let permsObj = coach?.perms || {};
+  if (typeof permsObj === 'string') {
+    try { permsObj = JSON.parse(permsObj); } catch(e) { permsObj = {}; }
+  }
+  const perms = { ...DEFAULT_PERMS, ...permsObj };
   const group = groups.find(g => g.id === coach.groupId);
   const myPlayers = players.filter(p => p.groupId === coach.groupId);
   const unread = messages.filter(m => m.to === user.id && !m.read).length;
