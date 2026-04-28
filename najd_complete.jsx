@@ -773,17 +773,64 @@ export default function App() {
     localStorage.setItem('najd_theme', theme);
   }, [players, coaches, groups, payments, attendance, coachesAttendance, evals, messages, prices, trainings, theme]);
 
+  // Sync state between tabs
+  useEffect(() => {
+    const handleStorage = (e) => {
+      try {
+        if (e.key === 'najd_players') setPlayers(JSON.parse(e.newValue));
+        if (e.key === 'najd_coaches') setCoaches(JSON.parse(e.newValue));
+        if (e.key === 'najd_groups') setGroups(JSON.parse(e.newValue));
+        if (e.key === 'najd_payments') setPayments(JSON.parse(e.newValue));
+        if (e.key === 'najd_attendance') setAttendance(JSON.parse(e.newValue));
+        if (e.key === 'najd_coachesAttendance') setCoachesAttendance(JSON.parse(e.newValue));
+        if (e.key === 'najd_evals') setEvals(JSON.parse(e.newValue));
+        if (e.key === 'najd_messages') setMessages(JSON.parse(e.newValue));
+        if (e.key === 'najd_prices') setPrices(JSON.parse(e.newValue));
+        if (e.key === 'najd_trainings') setTrainings(JSON.parse(e.newValue));
+        if (e.key === 'najd_theme') setTheme(e.newValue);
+        if (e.key === 'najd_logged_user') setUser(JSON.parse(e.newValue));
+      } catch (err) {
+        console.error("Storage sync error:", err);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const t = THEMES[theme];
 
   const shared = { 
     groups, setGroups, 
-    coaches, setCoaches, 
+    coaches,
+    setCoaches: (val) => {
+      if (typeof val === 'function') {
+        setCoaches(prev => {
+          const next = val(prev);
+          if (API_URL) {
+            const updated = next.filter(c => {
+              const old = prev.find(x => x.id === c.id);
+              return old && JSON.stringify(old) !== JSON.stringify(c);
+            });
+            const added = next.filter(c => !prev.find(x => x.id === c.id));
+            [...added, ...updated].forEach(c => {
+              fetch(`${API_URL}/api/coaches`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(c)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setCoaches(val);
+      }
+    },
     players, 
     setPlayers: (val) => {
       if (typeof val === 'function') {
         setPlayers(prev => {
           const next = val(prev);
-          // Sync new/updated players to cloud if API exists
           if (API_URL) {
             const added = next.filter(p => !prev.find(x => x.id === p.id));
             const updated = next.filter(p => prev.find(x => x.id === p.id && JSON.stringify(x) !== JSON.stringify(p)));
@@ -801,8 +848,48 @@ export default function App() {
         setPlayers(val);
       }
     },
+    setGroups: (val) => {
+      if (typeof val === 'function') {
+        setGroups(prev => {
+          const next = val(prev);
+          if (API_URL) {
+            const changed = next.filter(g => !prev.find(x => x.id === g.id && JSON.stringify(x) === JSON.stringify(g)));
+            changed.forEach(g => {
+              fetch(`${API_URL}/api/groups`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(g)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setGroups(val);
+      }
+    },
     parents: players.map(p => ({ id: p.parentId, name: `ولي أمر ${p.name}`, phone: p.phone, email: p.email })), 
-    payments, setPayments, 
+    payments,
+    setPayments: (val) => {
+      if (typeof val === 'function') {
+        setPayments(prev => {
+          const next = val(prev);
+          if (API_URL) {
+            const changed = next.filter(p => !prev.find(x => x.id === p.id && JSON.stringify(x) === JSON.stringify(p)));
+            changed.forEach(p => {
+              fetch(`${API_URL}/api/payments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(p)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setPayments(val);
+      }
+    },
     attendance, 
     setAttendance: (val) => {
       if (typeof val === 'function') {
