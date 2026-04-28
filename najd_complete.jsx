@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Component } from "react";
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 /* ═══ SETTINGS ════════════════════════════════════════ */
@@ -677,7 +677,7 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {actions}
-          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.2.1</div>
+          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.2.2</div>
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -1069,7 +1069,7 @@ export default function App() {
 
   if (globalError) return (
     <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.2.1)</h2>
+      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.2.2)</h2>
       <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
         <b>Error:</b> {globalError.message}
         <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{globalError.stack}</pre>
@@ -1108,18 +1108,24 @@ export default function App() {
         {!user ? (
           <LoginPage onLogin={setUser} players={players} coaches={coaches} t={t} />
         ) : (
-          <>
-            {user.role === "admin" && <AdminPortal user={user} onLogout={onLogout} {...shared} />}
-            {user.role === "coach" && <CoachPortal user={user} onLogout={onLogout} {...shared} />}
-            {user.role === "parent" && <ParentPortal user={user} onLogout={onLogout} {...shared} />}
-          </>
+          <div key={user.id}>
+            {user.role === "admin" && (
+              <ErrorBoundary name="AdminPortal"><AdminPortal user={user} onLogout={onLogout} {...shared} /></ErrorBoundary>
+            )}
+            {user.role === "coach" && (
+              <ErrorBoundary name="CoachPortal"><CoachPortal user={user} onLogout={onLogout} {...shared} /></ErrorBoundary>
+            )}
+            {user.role === "parent" && (
+              <ErrorBoundary name="ParentPortal"><ParentPortal user={user} onLogout={onLogout} {...shared} /></ErrorBoundary>
+            )}
+          </div>
         )}
       </div>
     );
   } catch (err) {
     return (
       <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.2.1)</h2>
+        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.2.2)</h2>
         <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
           <b>Error:</b> {err.message}
           <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{err.stack}</pre>
@@ -1127,6 +1133,24 @@ export default function App() {
         <button onClick={() => window.location.reload()} style={{ marginTop: 20, padding: "10px 20px", background: "#FF5555", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>Reload App</button>
       </div>
     );
+  }
+}
+
+/* ═══ ERROR BOUNDARY ══════════════════════════════════ */
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 30, background: "#1A0505", color: "#FFBABA", borderRadius: 12, border: "1px solid #FF5555", margin: 20 }}>
+          <h3>❌ Error in {this.props.name}</h3>
+          <pre style={{ fontSize: 12, marginTop: 10, whiteSpace: "pre-wrap" }}>{this.state.error?.message}</pre>
+          <button onClick={() => window.location.reload()} style={{ marginTop: 15, padding: "8px 16px", background: "#FF5555", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}>Reload</button>
+        </div>
+      );
+    }
+    return this.props.children;
   }
 }
 
@@ -3048,10 +3072,19 @@ function Messaging({ messages, setMessages, meId, meName, coaches, parents, play
   };
 
   // Role-based Contact Filtering
+  const uniqueParents = [];
+  const pIds = new Set();
+  (parents || []).forEach(p => {
+    if (p && p.id && !pIds.has(String(p.id))) {
+      uniqueParents.push(p);
+      pIds.add(String(p.id));
+    }
+  });
+
   let filteredContacts = [
     { id: "admin", name: "الإدارة", type: "admin" },
     ...(coaches || []).map(c => ({ id: c.id, name: c.name, type: "coach", groupId: c.groupId })),
-    ...(parents || []).map(p => ({ id: p.id, name: p.name, type: "parent" })),
+    ...uniqueParents.map(p => ({ id: p.id, name: p.name, type: "parent" })),
   ].filter(c => String(c.id) !== String(meId));
 
   if (role === "parent") {
