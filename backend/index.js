@@ -232,18 +232,19 @@ app.post('/api/evaluations', async (req, res) => {
     const evaluation = await prisma.evaluation.upsert({
       where: { id: e.id || 'new' },
       update: { 
-        playerId: e.playerId, coachId: e.coachId, coachName: e.coachName,
+        playerId: e.playerId, coachId: e.coachId,
         speed: e.speed, technique: e.technique, teamwork: e.teamwork, 
-        note: e.note, date: e.date 
+        note: e.note, date: new Date(e.date)
       },
       create: { 
-        id: e.id, playerId: e.playerId, coachId: e.coachId, coachName: e.coachName,
+        id: e.id, playerId: e.playerId, coachId: e.coachId,
         speed: e.speed, technique: e.technique, teamwork: e.teamwork, 
-        note: e.note, date: e.date 
+        note: e.note, date: new Date(e.date)
       }
     });
     res.json(evaluation);
   } catch (err) {
+    console.error("Eval Error:", err);
     res.status(500).json({ error: err.message });
   }
 });

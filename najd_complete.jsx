@@ -2323,8 +2323,8 @@ function CoachPlayers({ myPlayers, group, evals, t }) {
   const [sel, setSel] = useState(null);
   if (sel) {
     const p  = myPlayers.find(x => x.id === sel);
-    const pe = evals.filter(e => e.playerId === p.id).slice(-3);
-    const lastEval = evals.filter(e => e.playerId === p.id).slice(-1)[0];
+    const pe = evals.filter(e => e.playerId == p.id).slice(-3);
+    const lastEval = evals.filter(e => e.playerId == p.id).slice(-1)[0];
     return (
       <div>
         <button onClick={() => setSel(null)} style={{ background: t.bg2, border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", marginBottom: 18, fontFamily: "'Cairo',sans-serif" }}>← رجوع</button>
