@@ -2181,7 +2181,7 @@ function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPa
       {tab === "attendance" && perms.attendance !== false && <CoachAttendance coachId={user.id} group={group} myPlayers={myPlayers} attendance={attendance} setAttendance={setAttendance} t={t}/>}
       {tab === "eval"       && perms.evals !== false      && <CoachEval coachId={user.id} coachName={coach.name} myPlayers={myPlayers} players={players} evals={evals} setEvals={setEvals} t={t}/>}
       {tab === "payments"   && perms.payments !== false   && <CoachPayments coachId={user.id} myPlayers={myPlayers} payments={payments} setPayments={setPayments} prices={prices} coaches={coaches} t={t}/>}
-      {tab === "messages"   && perms.messages !== false   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={coach.name} coaches={coaches} parents={parents} t={t} role="coach"/>}
+      {tab === "messages"   && perms.messages !== false   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={coach.name} coaches={coaches} parents={parents} players={players} t={t} role="coach" myGroupId={coach.groupId}/>}
     </Shell>
   );
 }
@@ -2622,7 +2622,7 @@ function ParentPortal({ user, onLogout, players, groups, coaches, parents, payme
       {tab === "attendance" && <ParentAttendance child={child} childAtt={childAtt} t={t}/>}
       {tab === "payments"   && <ParentPayments child={child} childPays={childPays} prices={prices} t={t}/>}
       {tab === "schedule"   && <ParentSchedule childGroup={childGroup} childCoach={childCoach} trainings={trainings} t={t}/>}
-      {tab === "messages"   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={parent.name} coaches={coaches} parents={parents} t={t} role="parent" myCoachIds={myCoachIds} />}
+      {tab === "messages"   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={parent.name} coaches={coaches} parents={parents} players={players} t={t} role="parent" myCoachIds={myCoachIds} />}
     </Shell>
   );
 }
@@ -2938,7 +2938,7 @@ const QUICK_TEMPLATES = [
   { label: "تقييم جديد", text: "تم تحديث التقييم الفني للاعب، يرجى الاطلاع عليه من لوحة التحكم." },
 ];
 
-function Messaging({ messages, setMessages, meId, meName, coaches, parents, t, role, myGroupId, myPlayerIds }) {
+function Messaging({ messages, setMessages, meId, meName, coaches, parents, players, t, role, myGroupId, myPlayerIds, myCoachIds }) {
   const [compose, setCompose] = useState(false);
   const [form, setForm] = useState({ to: [], text: "", files: [] });
   const [filterType, setFilterType] = useState("all");
