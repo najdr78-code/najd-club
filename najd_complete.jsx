@@ -2569,11 +2569,8 @@ function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coac
    PARENT PORTAL
 ══════════════════════════════════════════════════════════ */
 function ParentPortal({ user, onLogout, players, groups, coaches, parents, payments, attendance, evals = [], messages, setMessages, prices, trainings, t, forceRefresh }) {
-  // 1. Identify the parent from the dynamic parents list
   const parent = (parents || []).find(p => String(p.id) == String(user.id)) || { name: user.name, id: user.id };
-  
-  // 2. Filter players by parentId
-  const myPlayers = players.filter(p => p.parentId === user.id);
+  const myPlayers = (players || []).filter(p => String(p.parentId) == String(user.id));
   
   const [activeChild, setActiveChild] = useState(myPlayers[0]?.id);
 
@@ -2585,16 +2582,16 @@ function ParentPortal({ user, onLogout, players, groups, coaches, parents, payme
   const [tab, setTab] = useState("overview");
   const unread = messages.filter(m => m.to === user.id && !m.read).length;
   
-  const child      = myPlayers.find(p => p.id === activeChild) || myPlayers[0];
-  const childGroup = child ? groups.find(g => g.id === child.groupId) : null;
-  const childCoach = childGroup ? coaches.find(c => c.id === childGroup.coachId) : null;
-  const childPays  = child ? payments.filter(p => p.playerId === child.id) : [];
-  const childAtt   = child ? attendance.filter(a => a.groupId === child.groupId) : [];
-  const childEvals = child ? evals.filter(e => e.playerId == child.id) : [];
+    const child      = myPlayers.find(p => p.id === activeChild) || myPlayers[0];
+    const childGroup = child ? (groups || []).find(g => String(g.id) == String(child.groupId)) : null;
+    const childCoach = childGroup ? (coaches || []).find(c => String(c.id) == String(childGroup.coachId)) : null;
+    const childPays  = child ? (payments || []).filter(p => String(p.playerId) == String(child.id)) : [];
+    const childAtt   = child ? (attendance || []).filter(a => String(a.groupId) == String(child.groupId)) : [];
+    const childEvals = child ? (evals || []).filter(e => String(e.playerId) == String(child.id)) : [];
 
   // My coaches: find all unique coaches of my children
   const myCoachIds = [...new Set(myPlayers.map(p => {
-    const g = groups.find(x => x.id === p.groupId);
+    const g = (groups || []).find(x => String(x.id) == String(p.groupId));
     return g?.coachId;
   }).filter(Boolean))];
 
