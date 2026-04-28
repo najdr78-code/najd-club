@@ -663,7 +663,7 @@ function LoginPage({ onLogin, players = [], coaches = [], t }) {
 }
 
 /* ═══ SHELL ═══════════════════════════════════════════ */
-function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, onLogout, badge, user, t, children }) {
+function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, onLogout, badge, user, t, children, actions }) {
   const theme = t || THEMES.dark;
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: theme.bg }}>
@@ -676,6 +676,8 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {actions}
+          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.1.5</div>
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -2568,7 +2570,7 @@ function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coac
 ══════════════════════════════════════════════════════════ */
 function ParentPortal({ user, onLogout, players, groups, coaches, parents, payments, attendance, evals = [], messages, setMessages, prices, trainings, t, forceRefresh }) {
   // 1. Identify the parent from the dynamic parents list
-  const parent = parents.find(p => p.id === user.id) || { name: user.name, id: user.id };
+  const parent = (parents || []).find(p => String(p.id) == String(user.id)) || { name: user.name, id: user.id };
   
   // 2. Filter players by parentId
   const myPlayers = players.filter(p => p.parentId === user.id);
