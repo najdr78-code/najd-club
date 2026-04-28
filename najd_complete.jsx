@@ -905,11 +905,85 @@ export default function App() {
         setAttendance(val);
       }
     },
-    coachesAttendance, setCoachesAttendance, 
-    evals, setEvals, 
-    messages, setMessages, 
+    coachesAttendance, 
+    setCoachesAttendance: (val) => {
+      if (typeof val === 'function') {
+        setCoachesAttendance(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          return next;
+        });
+      } else {
+        setCoachesAttendance(val);
+      }
+    },
+    evals, 
+    setEvals: (val) => {
+      if (typeof val === 'function') {
+        setEvals(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          if (API_URL) {
+            const added = next.filter(e => !prev.find(x => x.id === e.id));
+            added.forEach(e => {
+              fetch(`${API_URL}/api/evaluations`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(e)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setEvals(val);
+      }
+    },
+    messages, 
+    setMessages: (val) => {
+      if (typeof val === 'function') {
+        setMessages(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          if (API_URL) {
+            const added = next.filter(m => !prev.find(x => x.id === m.id));
+            added.forEach(m => {
+              fetch(`${API_URL}/api/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(m)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setMessages(val);
+      }
+    },
     prices, setPrices, 
-    trainings, setTrainings, 
+    trainings, 
+    setTrainings: (val) => {
+      if (typeof val === 'function') {
+        setTrainings(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          if (API_URL) {
+            const added = next.filter(t => !prev.find(x => x.id === t.id));
+            added.forEach(t => {
+              fetch(`${API_URL}/api/trainings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(t)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setTrainings(val);
+      }
+    },
     t 
   };
 
@@ -945,9 +1019,9 @@ export default function App() {
       {!user
         ? <LoginPage onLogin={setUser} players={players} coaches={coaches} t={t} />
         : user.role === "admin"
-          ? <AdminPortal  user={user} onLogout={() => setUser(null)} {...shared} />
+          ? <AdminPortal  user={user} onLogout={() => setUser(null)} {...shared} setLastUpdate={setLastUpdate}/>
           : user.role === "coach"
-            ? <CoachPortal  user={user} onLogout={() => setUser(null)} {...shared} />
+            ? <CoachPortal  user={user} onLogout={() => setUser(null)} {...shared} setLastUpdate={setLastUpdate}/>
             : <ParentPortal user={user} onLogout={() => setUser(null)} {...shared} loginUser={user} />
       }
     </div>
@@ -957,7 +1031,7 @@ export default function App() {
 /* ══════════════════════════════════════════════════════════
    ADMIN PORTAL
 ══════════════════════════════════════════════════════════ */
-function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, players, setPlayers, parents, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, messages, setMessages, prices, setPrices, trainings, setTrainings, t }) {
+function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, players, setPlayers, parents, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, messages, setMessages, prices, setPrices, trainings, setTrainings, t, setLastUpdate }) {
   const [tab, setTab] = useState("overview");
   const tabs = [
     { id: "overview",     icon: "dashboard",    label: "نظرة عامة"   },
@@ -980,7 +1054,7 @@ function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, p
       {tab === "payments"  && <AdminPayments payments={payments} setPayments={setPayments} players={players} coaches={coaches} prices={prices} t={t} />}
       {tab === "prices"    && <AdminPrices prices={prices} setPrices={setPrices} t={t} />}
       {tab === "schedule"  && <AdminTrainings trainings={trainings} setTrainings={setTrainings} groups={groups} coaches={coaches} t={t} />}
-      {tab === "messages"  && <Messaging messages={messages} setMessages={setMessages} meId="admin" meName="الإدارة" coaches={coaches} parents={parents} t={t} />}
+      {tab === "messages"  && <Messaging messages={messages} setMessages={setMessages} meId="admin" meName="الإدارة" coaches={coaches} parents={parents} t={t} setLastUpdate={setLastUpdate}/>}
     </Shell>
   );
 }
@@ -1286,7 +1360,6 @@ function AdminCoaches({ coaches, setCoaches, groups, players, payments, t }) {
   const [syncing, setSyncing] = useState(null);
   const empty = { name: "", phone: "", email: "", password: "", specialty: "", exp: 0, cert: "", groupId: "", salary: 0, perms: { ...DEFAULT_PERMS } };
   const [form, setForm] = useState(empty);
-
   const PERM_LABELS = [
     { key: "attendance", label: "تسجيل الحضور والغياب", icon: "attendance" },
     { key: "payments",   label: "استلام وتسجيل المدفوعات", icon: "payments" },
@@ -2025,7 +2098,7 @@ function AdminAttendance({ groups, players, coaches, attendance, setAttendance, 
   );
 }
 
-function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, setEvals, messages, setMessages, prices, trainings, setTrainings, t }) {
+function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, setEvals, messages, setMessages, prices, trainings, setTrainings, t, setLastUpdate }) {
   const coach = coaches.find(c => c.userId === user.id || c.id === user.id);
   
   if (!coach && coaches.length === 0) {
@@ -2080,10 +2153,10 @@ function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPa
       {tab === "home"       && <CoachHome coach={coach} group={group} groups={groups} myPlayers={myPlayers} attendance={attendance} evals={evals} trainings={trainings} t={t}/>}
       {tab === "sessions"   && <CoachSessions coach={coach} group={group} groups={groups} trainings={trainings} t={t}/>}
       {tab === "players"    && <CoachPlayers myPlayers={myPlayers} group={group} evals={evals} t={t}/>}
-      {tab === "attendance" && perms.attendance !== false && <CoachAttendance coachId={user.id} group={group} myPlayers={myPlayers} attendance={attendance} setAttendance={setAttendance} t={t}/>}
-      {tab === "eval"       && perms.evals !== false      && <CoachEval coachId={user.id} myPlayers={myPlayers} evals={evals} setEvals={setEvals} t={t}/>}
-      {tab === "payments"   && perms.payments !== false   && <CoachPayments coachId={user.id} myPlayers={myPlayers} players={players} payments={payments} setPayments={setPayments} prices={prices} coaches={coaches} t={t}/>}
-      {tab === "messages"   && perms.messages !== false   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={coach.name} coaches={coaches} parents={INIT_PARENTS} t={t}/>}
+      {tab === "attendance" && perms.attendance !== false && <CoachAttendance coachId={user.id} group={group} myPlayers={myPlayers} attendance={attendance} setAttendance={setAttendance} t={t} setLastUpdate={setLastUpdate}/>}
+      {tab === "eval"       && perms.evals !== false      && <CoachEval coachId={user.id} myPlayers={myPlayers} evals={evals} setEvals={setEvals} t={t} setLastUpdate={setLastUpdate}/>}
+      {tab === "payments"   && perms.payments !== false   && <CoachPayments coachId={user.id} myPlayers={myPlayers} players={players} payments={payments} setPayments={setPayments} prices={prices} coaches={coaches} t={t} setLastUpdate={setLastUpdate}/>}
+      {tab === "messages"   && perms.messages !== false   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={coach.name} coaches={coaches} parents={INIT_PARENTS} t={t} role="coach" setLastUpdate={setLastUpdate}/>}
     </Shell>
   );
 }
@@ -2730,45 +2803,13 @@ function ParentPayments({ child, childPays, prices, t }) {
           </thead>
           <tbody>
             {childPays.slice().reverse().map(p => {
-     const newPayment = {
-      id: `pay-${Date.now()}`,
-      playerId: selPlayer.id,
-      amount: +amount,
-      type,
-      month,
-      date: new Date().toISOString(),
-      note,
-      coachId: coach.id,
-      coachName: coach.name
-    };
-    
-    // Optimistic UI update (with name for display)
-    const displayPayment = { ...newPayment, playerName: selPlayer.name };
-    setPayments(prev => [displayPayment, ...prev]);
-    
-    if (API_URL) {
-      try {
-        await fetch(`${API_URL}/api/payments`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newPayment)
-        });
-      } catch (e) {
-        console.error("Payment save failed:", e);
-      }
-    }
-    
-    setSelPlayer(null);
-    setAmount("");
-    setNote("");
-  };
-const pt = PAY_TYPES[p.type];
+              const pt = PAY_TYPES[p.type];
               return (
                 <tr key={p.id} className={t.name === "dark" ? "rh" : "rhl"} style={{ borderBottom: `1px solid ${t.border}`, transition: "background .15s" }}>
-                  <td style={{ padding: "10px 14px" }}><Chip text={`${pt.icon} ${pt.label}`} color={pt.color}/></td>
+                  <td style={{ padding: "10px 14px" }}><Chip text={pt ? `${pt.icon} ${pt.label}` : p.type} color={pt?.color || "#7C49A8"}/></td>
                   <td style={{ padding: "10px 14px", fontSize: 12, color: t.textDim }}>{p.month}</td>
-                  <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 800, color: pt.color }}>{fmtMoney(p.amount)}</td>
-                  <td style={{ padding: "10px 14px", fontSize: 11, color: "#A78BFA", fontWeight: 600 }}>{p.coachName}</td>
+                  <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 800, color: pt?.color || "#10B981" }}>{fmtMoney(p.amount)}</td>
+                  <td style={{ padding: "10px 14px", fontSize: 11, color: "#A78BFA", fontWeight: 600 }}>{p.coachName || "الإدارة"}</td>
                   <td style={{ padding: "10px 14px", fontSize: 11, color: t.textDim }}>{p.date}</td>
                   <td style={{ padding: "10px 14px", fontSize: 11, color: t.textDim }}>{p.note || "—"}</td>
                 </tr>
@@ -2888,13 +2929,16 @@ const QUICK_TEMPLATES = [
   { label: "تقييم جديد", text: "تم تحديث التقييم الفني للاعب، يرجى الاطلاع عليه من لوحة التحكم." },
 ];
 
-function Messaging({ messages, setMessages, meId, meName, coaches, parents, t, role, myGroupId, myPlayerIds }) {
+function Messaging({ messages, setMessages, meId, meName, coaches, parents, t, role, myGroupId, myPlayerIds, setLastUpdate }) {
   const [compose, setCompose] = useState(false);
   const [form, setForm] = useState({ to: [], text: "", files: [] });
   const [filterType, setFilterType] = useState("all");
   
   const mine = messages.filter(m => m.from === meId || m.to === meId).slice().reverse();
-  const markRead = id => setMessages(ms => ms.map(m => m.id === id ? { ...m, read: true } : m));
+  const markRead = id => {
+    setMessages(ms => ms.map(m => m.id === id ? { ...m, read: true } : m));
+    setLastUpdate();
+  };
 
   const send = () => {
     if (!form.to.length || !form.text.trim()) return;
@@ -2916,7 +2960,7 @@ function Messaging({ messages, setMessages, meId, meName, coaches, parents, t, r
         toName: targetName,
         text: form.text,
         files: form.files,
-        date: new Date().toISOString().split("T")[0],
+        date: new Date().toISOString(),
         read: false
       };
     });
@@ -2932,6 +2976,7 @@ function Messaging({ messages, setMessages, meId, meName, coaches, parents, t, r
     }
 
     setMessages(ms => [...ms, ...newMsgs]);
+    setLastUpdate();
     setForm({ to: [], text: "", files: [] });
     setCompose(false);
     alert("تم إرسال الرسائل بنجاح");

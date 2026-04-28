@@ -30,8 +30,6 @@ model User {
   coachProfile  Coach?
   parentProfile Parent?
   playerProfile Player?
-  sentMessages     Message[] @relation("SentMessages")
-  receivedMessages Message[] @relation("ReceivedMessages")
 }
 
 model Coach {
@@ -140,13 +138,12 @@ model Evaluation {
 
 model Message {
   id         String   @id @default(cuid())
-  fromId     String
-  fromUser   User     @relation("SentMessages", fields: [fromId], references: [id])
-  toId       String
-  toUser     User     @relation("ReceivedMessages", fields: [toId], references: [id])
+  from       String
+  to         String
   fromName   String
   toName     String
   text       String
+  files      Json?
   date       DateTime @default(now())
   read       Boolean  @default(false)
 }

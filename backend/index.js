@@ -212,8 +212,18 @@ app.post('/api/trainings', async (req, res) => {
 });
 
 app.post('/api/messages', async (req, res) => {
-  const msg = await prisma.message.create({ data: req.body });
-  res.json(msg);
+  try {
+    const { id, from, to, fromName, toName, text, files, date, read } = req.body;
+    const msg = await prisma.message.upsert({
+      where: { id: id || 'new' },
+      update: { read },
+      create: { id, from, to, fromName, toName, text, files, date: new Date(date), read: !!read }
+    });
+    res.json(msg);
+  } catch (e) {
+    console.error("Message error:", e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.listen(PORT, () => {
