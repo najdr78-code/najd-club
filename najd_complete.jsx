@@ -718,6 +718,26 @@ export default function App() {
   const [payments, setPayments] = useState(() => JSON.parse(localStorage.getItem('najd_payments') || '[]'));
   const [theme, setTheme] = useState(() => localStorage.getItem('najd_theme') || "dark");
 
+  // Coordinate updates between tabs
+  const setLastUpdate = () => localStorage.setItem('najd_last_update', Date.now().toString());
+  const isRecentlyUpdated = () => {
+    const last = parseInt(localStorage.getItem('najd_last_update') || '0');
+    return (Date.now() - last < 45000);
+  };
+
+  // Sync logged-in user if their data (like perms) changes in the main list
+  useEffect(() => {
+    if (user && user.role === 'coach') {
+      const coachData = coaches.find(c => c.userId === user.id || c.id === user.id);
+      if (coachData) {
+        const updatedUser = { ...coachData, role: 'coach' };
+        if (JSON.stringify(updatedUser) !== JSON.stringify(user)) {
+          setUser(updatedUser);
+        }
+      }
+    }
+  }, [coaches, user]);
+
   useEffect(() => {
     if (user) localStorage.setItem('najd_logged_user', JSON.stringify(user));
     else localStorage.removeItem('najd_logged_user');
@@ -727,37 +747,53 @@ export default function App() {
   useEffect(() => {
     if (API_URL) {
       const fetchData = async () => {
+        if (isRecentlyUpdated()) return;
+        
         try {
           const res = await fetch(`${API_URL}/api/initial-data`);
+          if (!res.ok) throw new Error("Fetch failed");
           const data = await res.json();
-          if (data.players) {
-            // Auto-repair missing logins/data for display
-            const repaired = data.players.map(p => {
-              if (p.email && p.password) return p;
-              const phone = p.phone || "0500000000";
-              return { 
-                ...p, 
-                email: p.email || `najd_${phone}@najd.sa`,
-                password: p.password || `najd_${phone.slice(-4)}`
-              };
+          
+          if (isRecentlyUpdated()) return; 
+
+          const merge = (local, remote) => {
+            if (!remote) return local;
+            const res = [...local];
+            const localIds = new Set(local.map(l => l.id));
+            
+            remote.forEach(r => {
+              if (!localIds.has(r.id)) {
+                res.push(r);
+              } else {
+                // If it exists in both, only update from remote if NOT recently updated
+                if (!isRecentlyUpdated()) {
+                  const idx = res.findIndex(l => l.id === r.id);
+                  res[idx] = r;
+                }
+              }
             });
-            setPlayers(repaired);
-          }
-          if (data.coaches) setCoaches(data.coaches);
-          if (data.groups) setGroups(data.groups);
-          if (data.payments) setPayments(data.payments);
-          if (data.attendance) setAttendance(data.attendance);
-          if (data.coachesAttendance) setCoachesAttendance(data.coachesAttendance);
-          if (data.evals) setEvals(data.evals);
-          if (data.messages) setMessages(data.messages);
-          if (data.trainings) setTrainings(data.trainings);
+            return res;
+          };
+
+          if (data.coaches)  setCoaches(prev => merge(prev, data.coaches));
+          if (data.payments) setPayments(prev => merge(prev, data.payments));
+          if (data.players)  setPlayers(prev => merge(prev, data.players));
+          if (data.groups)   setGroups(prev => merge(prev, data.groups));
+          if (data.attendance) setAttendance(prev => merge(prev, data.attendance));
+          if (data.coachesAttendance) setCoachesAttendance(prev => merge(prev, data.coachesAttendance));
+          if (data.evals) setEvals(prev => merge(prev, data.evals));
+          if (data.messages) setMessages(prev => merge(prev, data.messages));
+          if (data.trainings) setTrainings(prev => merge(prev, data.trainings));
         } catch (e) {
           console.error("API Fetch Error:", e);
         }
       };
+      
       fetchData();
+      const interval = setInterval(fetchData, 10000); // Polling for everyone
+      return () => clearInterval(interval);
     }
-  }, []);
+  }, [user?.role]);
 
   useEffect(() => {
     localStorage.setItem('najd_players', JSON.stringify(players));
@@ -776,22 +812,72 @@ export default function App() {
   const t = THEMES[theme];
 
   const shared = { 
-    groups, setGroups, 
-    coaches, setCoaches, 
+    groups, 
+    setGroups: (val) => {
+      if (typeof val === 'function') {
+        setGroups(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          if (API_URL) {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
+              fetch(`${API_URL}/api/groups`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setGroups(val);
+      }
+    },
+    coaches, 
+    setCoaches: (val) => {
+      if (typeof val === 'function') {
+        setCoaches(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          if (API_URL) {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
+              fetch(`${API_URL}/api/coaches`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setCoaches(val);
+      }
+    },
     players, 
     setPlayers: (val) => {
       if (typeof val === 'function') {
         setPlayers(prev => {
           const next = val(prev);
-          // Sync new/updated players to cloud if API exists
+          setLastUpdate();
           if (API_URL) {
-            const added = next.filter(p => !prev.find(x => x.id === p.id));
-            const updated = next.filter(p => prev.find(x => x.id === p.id && JSON.stringify(x) !== JSON.stringify(p)));
-            [...added, ...updated].forEach(p => {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
               fetch(`${API_URL}/api/players`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(p)
+                body: JSON.stringify(item)
               }).catch(console.error);
             });
           }
@@ -802,19 +888,47 @@ export default function App() {
       }
     },
     parents: players.map(p => ({ id: p.parentId, name: `ولي أمر ${p.name}`, phone: p.phone, email: p.email })), 
-    payments, setPayments, 
+    payments, 
+    setPayments: (val) => {
+      if (typeof val === 'function') {
+        setPayments(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          if (API_URL) {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
+              fetch(`${API_URL}/api/payments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setPayments(val);
+      }
+    },
     attendance, 
     setAttendance: (val) => {
       if (typeof val === 'function') {
         setAttendance(prev => {
           const next = val(prev);
+          setLastUpdate();
           if (API_URL) {
-            const changed = next.filter(a => !prev.find(x => x.id === a.id && JSON.stringify(x) === JSON.stringify(a)));
-            changed.forEach(a => {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
               fetch(`${API_URL}/api/attendance`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(a)
+                body: JSON.stringify(item)
               }).catch(console.error);
             });
           }
@@ -824,11 +938,94 @@ export default function App() {
         setAttendance(val);
       }
     },
-    coachesAttendance, setCoachesAttendance, 
-    evals, setEvals, 
-    messages, setMessages, 
+    coachesAttendance, 
+    setCoachesAttendance: (val) => {
+      if (typeof val === 'function') {
+        setCoachesAttendance(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          return next;
+        });
+      } else {
+        setCoachesAttendance(val);
+      }
+    },
+    evals, 
+    setEvals: (val) => {
+      if (typeof val === 'function') {
+        setEvals(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          if (API_URL) {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
+              fetch(`${API_URL}/api/evaluations`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setEvals(val);
+      }
+    },
+    messages, 
+    setMessages: (val) => {
+      if (typeof val === 'function') {
+        setMessages(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          if (API_URL) {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
+              fetch(`${API_URL}/api/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setMessages(val);
+      }
+    },
     prices, setPrices, 
-    trainings, setTrainings, 
+    trainings, 
+    setTrainings: (val) => {
+      if (typeof val === 'function') {
+        setTrainings(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          if (API_URL) {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
+              fetch(`${API_URL}/api/trainings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setTrainings(val);
+      }
+    },
     t 
   };
 
@@ -1783,10 +1980,9 @@ function AdminTrainings({ trainings, setTrainings, groups, coaches, t }) {
             <Input label="الوقت" value={form.time} onChange={v => setForm(f => ({ ...f, time: v }))} t={t}/>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Input label="الوقت" value={form.time} onChange={v => setForm(f => ({ ...f, time: v }))} t={t}/>
+            <Input label="المكان (الملعب)" value={form.field} onChange={v => setForm(f => ({ ...f, field: v }))} t={t}/>
             <Input label="المدة (دقيقة)" value={form.duration} onChange={v => setForm(f => ({ ...f, duration: +v }))} type="number" t={t}/>
           </div>
-          <Input label="الملعب" value={form.field} onChange={v => setForm(f => ({ ...f, field: v }))} t={t}/>
           <Input label="تركيز التدريب (المهارة)" value={form.trainingFocus} onChange={v => setForm(f => ({ ...f, trainingFocus: v }))} placeholder="مثال: تمرير قصير" t={t}/>
           <Input label="ملاحظات" value={form.note} onChange={v => setForm(f => ({ ...f, note: v }))} placeholder="اختياري" t={t}/>
           
@@ -1914,7 +2110,7 @@ function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPa
       {tab === "attendance" && perms.attendance !== false && <CoachAttendance coachId={user.id} group={group} myPlayers={myPlayers} attendance={attendance} setAttendance={setAttendance} t={t}/>}
       {tab === "eval"       && perms.evals !== false      && <CoachEval coachId={user.id} myPlayers={myPlayers} evals={evals} setEvals={setEvals} t={t}/>}
       {tab === "payments"   && perms.payments !== false   && <CoachPayments coachId={user.id} myPlayers={myPlayers} payments={payments} setPayments={setPayments} prices={prices} coaches={coaches} t={t}/>}
-      {tab === "messages"   && perms.messages !== false   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={coach.name} coaches={coaches} parents={INIT_PARENTS} t={t}/>}
+      {tab === "messages"   && perms.messages !== false   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={coach.name} coaches={coaches} parents={parents} t={t} role="coach"/>}
     </Shell>
   );
 }
