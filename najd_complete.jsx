@@ -718,12 +718,18 @@ export default function App() {
   const [players, setPlayers] = useState(() => JSON.parse(localStorage.getItem('najd_players') || '[]'));
   const [payments, setPayments] = useState(() => JSON.parse(localStorage.getItem('najd_payments') || '[]'));
   const [theme, setTheme] = useState(() => localStorage.getItem('najd_theme') || "dark");
-  const lastLocalUpdate = useRef(0);
+  
+  // Coordinate updates between tabs
+  const setLastUpdate = () => localStorage.setItem('najd_last_update', Date.now().toString());
+  const isRecentlyUpdated = () => {
+    const last = parseInt(localStorage.getItem('najd_last_update') || '0');
+    return (Date.now() - last < 15000);
+  };
 
   // Sync logged-in user if their data (like perms) changes in the main list
   useEffect(() => {
     if (user && user.role === 'coach') {
-      const coachData = coaches.find(c => c.id === user.id);
+      const coachData = coaches.find(c => c.userId === user.id || c.id === user.id);
       if (coachData) {
         const updatedUser = { ...coachData, role: 'coach' };
         if (JSON.stringify(updatedUser) !== JSON.stringify(user)) {
@@ -743,25 +749,21 @@ export default function App() {
     if (API_URL) {
       const fetchData = async () => {
         if (user?.role === 'admin') return; 
-        if (Date.now() - lastLocalUpdate.current < 20000) return;
+        if (isRecentlyUpdated()) return;
         
         try {
           const res = await fetch(`${API_URL}/api/initial-data`);
           if (!res.ok) throw new Error("Fetch failed");
           const data = await res.json();
           
-          const isRecentUpdate = (Date.now() - lastLocalUpdate.current < 20000);
+          if (isRecentlyUpdated()) return; // Double check
 
           if (data.coaches) {
-            setCoaches(prev => {
-              if (isRecentUpdate) return prev; // Keep local state during sync
-              return data.coaches;
-            });
+            setCoaches(prev => isRecentlyUpdated() ? prev : data.coaches);
           }
           if (data.payments) {
             setPayments(prev => {
-              if (isRecentUpdate) {
-                // Merge: keep local payments that aren't in remote yet
+              if (isRecentlyUpdated()) {
                 const remoteIds = new Set(data.payments.map(p => p.id));
                 const localOnly = prev.filter(p => !remoteIds.has(p.id));
                 return [...localOnly, ...data.payments];
@@ -769,18 +771,8 @@ export default function App() {
               return data.payments;
             });
           }
-          if (data.players) {
-            setPlayers(prev => {
-              if (isRecentUpdate) return prev;
-              return data.players;
-            });
-          }
-          if (data.groups) {
-            setGroups(prev => {
-              if (isRecentUpdate) return prev;
-              return data.groups;
-            });
-          }
+          if (data.players) setPlayers(prev => isRecentlyUpdated() ? prev : data.players);
+          if (data.groups) setGroups(prev => isRecentlyUpdated() ? prev : data.groups);
           if (data.attendance) setAttendance(data.attendance);
           if (data.coachesAttendance) setCoachesAttendance(data.coachesAttendance);
           if (data.evals) setEvals(data.evals);
@@ -851,7 +843,7 @@ export default function App() {
       if (typeof val === 'function') {
         setPlayers(prev => {
           const next = val(prev);
-          lastLocalUpdate.current = Date.now();
+          setLastUpdate();
           return next;
         });
       } else {
@@ -862,7 +854,7 @@ export default function App() {
       if (typeof val === 'function') {
         setGroups(prev => {
           const next = val(prev);
-          lastLocalUpdate.current = Date.now();
+          setLastUpdate();
           return next;
         });
       } else {
@@ -875,9 +867,10 @@ export default function App() {
       if (typeof val === 'function') {
         setPayments(prev => {
           const next = val(prev);
+          setLastUpdate();
           if (API_URL) {
-            const changed = next.filter(p => !prev.find(x => x.id === p.id && JSON.stringify(x) === JSON.stringify(p)));
-            changed.forEach(p => {
+            const added = next.filter(p => !prev.find(x => x.id === p.id));
+            added.forEach(p => {
               fetch(`${API_URL}/api/payments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -896,9 +889,10 @@ export default function App() {
       if (typeof val === 'function') {
         setAttendance(prev => {
           const next = val(prev);
+          setLastUpdate();
           if (API_URL) {
-            const changed = next.filter(a => !prev.find(x => x.id === a.id && JSON.stringify(x) === JSON.stringify(a)));
-            changed.forEach(a => {
+            const added = next.filter(a => !prev.find(x => x.id === a.id));
+            added.forEach(a => {
               fetch(`${API_URL}/api/attendance`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
