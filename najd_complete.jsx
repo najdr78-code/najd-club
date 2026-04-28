@@ -1625,19 +1625,37 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals, coaches, t 
           <Card t={t} style={{ padding: 22 }}>
             <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 16 }}>📊 المهارات والتقييم الأخير</div>
             
-            {/* Last Eval Info */}
             {(() => {
               const lastEval = evals.filter(e => e.playerId === p.id).slice(-1)[0];
-              if (!lastEval) return <div style={{ fontSize: 11, color: t.textDim, marginBottom: 16, background: t.bg, padding: 10, borderRadius: 8 }}>لم يتم تقييم اللاعب بعد</div>;
+              if (!lastEval) return (
+                <div style={{ background: "rgba(124,73,168,.05)", padding: 16, borderRadius: 12, marginBottom: 20, border: `1px dashed ${t.border}`, textAlign: "center" }}>
+                  <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
+                  <div style={{ fontSize: 12, color: t.textDim }}>لا توجد تقييمات مسجلة لهذا اللاعب حتى الآن.</div>
+                </div>
+              );
               return (
-                <div style={{ background: t.bg, padding: 12, borderRadius: 10, marginBottom: 18, border: `1px solid ${t.border}` }}>
-                  <div style={{ fontSize: 11, color: t.textDim, marginBottom: 4 }}>آخر تقييم بواسطة: <span style={{ color: "#7C49A8", fontWeight: 700 }}>{lastEval.coachName || "مدرب النادي"}</span></div>
-                  <div style={{ fontSize: 11, color: t.textDim, marginBottom: 8 }}>بتاريخ: <span style={{ color: t.text, fontWeight: 600 }}>{lastEval.date}</span></div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <Chip text={`سرعة ${lastEval.speed}`} color="#06B6D4" size={9}/>
-                    <Chip text={`تقنية ${lastEval.technique}`} color="#7C49A8" size={9}/>
-                    <Chip text={`فريق ${lastEval.teamwork}`} color="#F59E0B" size={9}/>
+                <div style={{ background: "linear-gradient(135deg, rgba(124,73,168,.1), rgba(6,182,212,.05))", padding: 18, borderRadius: 14, marginBottom: 20, border: `1px solid ${t.purple}33` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: t.purple }}>📝 تقييم المدرب الأخير</div>
+                    <Chip text={lastEval.date} color={t.textDim} size={9}/>
                   </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "8px 12px", background: "rgba(255,255,255,.05)", borderRadius: 10 }}>
+                    <Avatar name={lastEval.coachName || "مدرب"} size={24} color="#7C49A8"/>
+                    <div style={{ fontSize: 12, color: t.text }}>بواسطة: <span style={{ fontWeight: 800, color: "#06B6D4" }}>{lastEval.coachName || "مدرب النادي"}</span></div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+                    {[["سرعة", lastEval.speed, "#06B6D4"], ["تقنية", lastEval.technique, "#7C49A8"], ["فريق", lastEval.teamwork, "#F59E0B"]].map(([l, v, c]) => (
+                      <div key={l} style={{ textAlign: "center", padding: "8px 4px", background: `${c}12`, borderRadius: 8, border: `1px solid ${c}25` }}>
+                        <div style={{ fontSize: 9, color: t.textDim, marginBottom: 2 }}>{l}</div>
+                        <div style={{ fontSize: 14, fontWeight: 900, color: c }}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {lastEval.note && (
+                    <div style={{ fontSize: 11, color: t.textDim, fontStyle: "italic", lineHeight: 1.5, borderTop: `1px solid ${t.border}`, paddingTop: 10 }}>
+                      "{lastEval.note}"
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -1695,7 +1713,7 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals, coaches, t 
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: t.bg, borderBottom: `1px solid ${t.border}` }}>
-              {["اللاعب", "الفريق", "المركز", "الإيميل", "الحالة", "التقييم", ""].map(h => (
+              {["اللاعب", "الفريق", "المركز", "الإيميل", "الحالة", "آخر تقييم", "الدرجة", ""].map(h => (
                 <th key={h} style={{ padding: "12px 14px", textAlign: "right", fontSize: 10, color: t.textDim, fontWeight: 700 }}>{h}</th>
               ))}
             </tr>
@@ -1715,6 +1733,18 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals, coaches, t 
                   <td style={{ padding: "11px 14px" }}><Chip text={p.position} color="#06B6D4"/></td>
                   <td style={{ padding: "11px 14px", fontSize: 11, color: t.textDim }}>{p.email || "—"}</td>
                   <td style={{ padding: "11px 14px" }}><Chip text={p.status} color={p.status === "نشط" ? "#10B981" : "#EF4444"}/></td>
+                  <td style={{ padding: "11px 14px" }}>
+                    {(() => {
+                      const last = evals.filter(e => e.playerId === p.id).slice(-1)[0];
+                      if (!last) return <span style={{ fontSize: 10, color: t.textFaint }}>—</span>;
+                      return (
+                        <div style={{ fontSize: 10, lineHeight: 1.2 }}>
+                          <div style={{ fontWeight: 700, color: "#06B6D4" }}>{last.coachName?.split(" ")[0] || "مدرب"}</div>
+                          <div style={{ color: t.textDim }}>{last.date}</div>
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td style={{ padding: "11px 14px", fontSize: 13, fontWeight: 800, color: p.score > 80 ? "#10B981" : p.score > 60 ? "#F59E0B" : "#EF4444" }}>{p.score}</td>
                   <td style={{ padding: "11px 14px" }}>
                     <button onClick={e => { e.stopPropagation(); setPlayers(ps => ps.filter(x => x.id !== p.id)); }}
@@ -2611,11 +2641,18 @@ function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, 
           {lastEval 
             ? (
               <div>
-                <div style={{ fontSize: 11, color: t.textDim, marginBottom: 12 }}>آخر تقييم بتاريخ: {lastEval.date} · <span style={{ color: "#10B981", fontWeight: 700 }}>{lastEval.coachName || childCoach?.name}</span></div>
-                <SkillBar label="السرعة" val={lastEval.speed} color="#06B6D4" t={t}/>
-                <SkillBar label="التقنية" val={lastEval.technique} color="#7C49A8" t={t}/>
-                <SkillBar label="العمل الجماعي" val={lastEval.teamwork} color="#F59E0B" t={t}/>
-                {lastEval.note && <div style={{ background: t.bg, borderRadius: 8, padding: "10px 12px", fontSize: 12, color: t.textDim, lineHeight: 1.7, marginTop: 10 }}>"{lastEval.note}"</div>}
+                <div style={{ background: "rgba(16,185,129,.05)", borderRadius: 12, padding: 16, border: "1px solid rgba(16,185,129,.15)", marginBottom: 15 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, color: t.textDim }}>آخر تقييم بتاريخ: <span style={{ fontWeight: 700, color: t.text }}>{lastEval.date}</span></div>
+                    <Chip text={lastEval.coachName || "مدرب النادي"} color="#10B981"/>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 15 }}>
+                    <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: t.textDim }}>سرعة</div><div style={{ fontSize: 16, fontWeight: 900, color: "#06B6D4" }}>{lastEval.speed}</div></div>
+                    <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: t.textDim }}>تقنية</div><div style={{ fontSize: 16, fontWeight: 900, color: "#7C49A8" }}>{lastEval.technique}</div></div>
+                    <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: t.textDim }}>فريق</div><div style={{ fontSize: 16, fontWeight: 900, color: "#F59E0B" }}>{lastEval.teamwork}</div></div>
+                  </div>
+                  {lastEval.note && <div style={{ fontSize: 12, color: t.textMid, fontStyle: "italic", background: t.bg, padding: 10, borderRadius: 8, border: `1px dashed ${t.border}` }}>"{lastEval.note}"</div>}
+                </div>
               </div>
             )
             : <div style={{ textAlign: "center", color: t.textFaint, padding: "40px 0", fontSize: 13 }}>لم يتم تقييم اللاعب بعد من قبل المدرب.</div>
