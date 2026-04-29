@@ -663,7 +663,7 @@ function LoginPage({ onLogin, players = [], coaches = [], t }) {
 }
 
 /* ═══ SHELL ═══════════════════════════════════════════ */
-function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, onLogout, badge, user, t, children, actions }) {
+function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, onLogout, badge, user, t, children, actions, syncStatus }) {
   const theme = t || THEMES.dark;
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: theme.bg }}>
@@ -677,7 +677,7 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {actions}
-          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.5.1</div>
+          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.5.2</div>
           {syncStatus === "syncing" && <div style={{ fontSize: 10, color: "#D8A435", marginRight: 10 }}>🔄 جاري الحفظ...</div>}
           {syncStatus === "success" && <div style={{ fontSize: 10, color: "#10B981", marginRight: 10 }}>✅ تم الحفظ</div>}
           {syncStatus === "error"   && <div style={{ fontSize: 10, color: "#EF4444", marginRight: 10 }}>⚠️ فشل التزامن</div>}
@@ -880,6 +880,7 @@ export default function App() {
   const t = THEMES[theme];
 
   const shared = { 
+    syncStatus,
     groups, 
     setGroups: (val) => {
       if (typeof val === 'function') {
@@ -1194,7 +1195,7 @@ class ErrorBoundary extends Component {
 /* ══════════════════════════════════════════════════════════
    ADMIN PORTAL
 ══════════════════════════════════════════════════════════ */
-function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, players, setPlayers, parents, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, messages, setMessages, prices, setPrices, trainings, setTrainings, t, forceRefresh }) {
+function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, players, setPlayers, parents, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, messages, setMessages, prices, setPrices, trainings, setTrainings, t, forceRefresh, syncStatus }) {
   const [tab, setTab] = useState("overview");
   const tabs = [
     { id: "overview",     icon: "dashboard",    label: "نظرة عامة"   },
@@ -1208,7 +1209,7 @@ function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, p
     { id: "messages",     icon: "messages",     label: "الرسائل",      badge: messages.filter(m => m.to === "admin" && !m.read).length || undefined },
   ];
   return (
-    <Shell title="لوحة الإدارة" subtitle="نادي نجد الرياض" color="#7C49A8" icon="dashboard" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge="مدير عام" user={user} t={t}
+    <Shell title="لوحة الإدارة" subtitle="نادي نجد الرياض" color="#7C49A8" icon="dashboard" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge="مدير عام" user={user} t={t} syncStatus={syncStatus}
       actions={<Btn variant="secondary" onClick={forceRefresh} style={{ padding: "6px 12px", fontSize: 11 }}>🔄 تحديث البيانات</Btn>}>
       {tab === "overview"  && <AdminOverview players={players} coaches={coaches} groups={groups} payments={payments} t={t} />}
       {tab === "teams"     && <AdminTeams groups={groups} setGroups={setGroups} coaches={coaches} players={players} t={t} />}
@@ -2253,7 +2254,7 @@ function AdminAttendance({ groups, players, coaches, attendance, setAttendance, 
   );
 }
 
-function CoachPortal({ user, onLogout, groups, coaches, players, parents, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, setEvals, messages, setMessages, prices, trainings, setTrainings, t }) {
+function CoachPortal({ user, onLogout, groups, coaches, players, parents, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, setEvals, messages, setMessages, prices, trainings, setTrainings, t, syncStatus }) {
   const coach = coaches.find(c => c.id === user.id) || coaches[0];
   const perms = coach?.perms || { ...DEFAULT_PERMS };
   const group = groups.find(g => g.id === coach.groupId);
@@ -2277,7 +2278,7 @@ function CoachPortal({ user, onLogout, groups, coaches, players, parents, paymen
   }, [perms]);
 
   return (
-    <Shell title={coach.name} subtitle={`مدرب ${group?.name || ""}`} color="#06B6D4" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge={group?.name} user={user} t={t}>
+    <Shell title={coach.name} subtitle={`مدرب ${group?.name || ""}`} color="#06B6D4" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge={group?.name} user={user} t={t} syncStatus={syncStatus}>
       {tab === "home"       && <CoachHome coach={coach} group={group} groups={groups} myPlayers={myPlayers} attendance={attendance} evals={evals} trainings={trainings} t={t}/>}
       {tab === "sessions"   && <CoachSessions coach={coach} group={group} groups={groups} trainings={trainings} t={t}/>}
       {tab === "players"    && <CoachPlayers myPlayers={myPlayers} group={group} evals={evals} t={t}/>}
@@ -2686,7 +2687,8 @@ function ParentPortal(props) {
       prices = {}, 
       trainings = [], 
       t, 
-      forceRefresh 
+      forceRefresh,
+      syncStatus 
     } = props;
   const parentId = String(user.id).replace("par_", "").trim().toLowerCase();
   const parent = (parents || []).find(p => p && String(p.id).trim().toLowerCase() === parentId) || { name: user?.name, id: user?.id };
@@ -2733,7 +2735,7 @@ function ParentPortal(props) {
   ];
 
   return (
-    <Shell title={`أهلاً، ${parent.name}`} subtitle="بوابة ولي الأمر" color="#10B981" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge="ولي أمر" user={user} t={t}
+    <Shell title={`أهلاً، ${parent.name}`} subtitle="بوابة ولي الأمر" color="#10B981" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge="ولي أمر" user={user} t={t} syncStatus={syncStatus}
       actions={<Btn variant="secondary" onClick={forceRefresh} style={{ padding: "6px 12px", fontSize: 11 }}>🔄 تحديث</Btn>}>
       {myPlayers.length > 1 && (
         <div style={{ display: "flex", gap: 8, marginBottom: 18, borderBottom: `1px solid ${t.border}`, paddingBottom: 14 }}>
