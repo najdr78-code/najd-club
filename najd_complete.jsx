@@ -677,7 +677,7 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {actions}
-          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.4.1</div>
+          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.5.0</div>
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -742,11 +742,23 @@ export default function App() {
     return () => window.removeEventListener('error', handleErr);
   }, []);
 
-  // Coordinate updates between tabs
+  // Coordinate updates between tabs with Atomic Sync Lock
   const setLastUpdate = () => localStorage.setItem('najd_last_update', Date.now().toString());
   const isRecentlyUpdated = () => {
     const last = parseInt(localStorage.getItem('najd_last_update') || '0');
-    return (Date.now() - last < 15000);
+    return (Date.now() - last < 25000); // 25s lock to allow server to process POSTs
+  };
+
+  // Atomic API Sync Helper
+  const syncWithAPI = async (type, item, isDelete = false) => {
+    if (!API_URL) return;
+    try {
+      await fetch(`${API_URL}/api/${type}${isDelete ? '/delete' : ''}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(isDelete ? { id: item.id } : item)
+      });
+    } catch (e) { console.error(`Sync Error (${type}):`, e); }
   };
 
   // Sync logged-in user if their data (like perms) changes in the main list
@@ -780,27 +792,40 @@ export default function App() {
           
           if (isRecentlyUpdated()) return; 
 
-          const merge = (local, remote) => {
+          const merge = (local, remote, type) => {
             if (!remote) return local;
-            const res = [...local];
-            const localIds = new Set(local.map(l => l.id));
+            let res = [...local];
+            const remoteIds = new Set(remote.map(r => String(r.id)));
+            const localIds  = new Set(local.map(l => String(l.id)));
             
+            // 1. Add/Update from Remote
             remote.forEach(r => {
-              if (!localIds.has(r.id)) {
+              const rid = String(r.id);
+              if (!localIds.has(rid)) {
                 res.push(r);
               } else {
-                // If it exists in both, only update from remote if NOT recently updated
+                // Only update if not recently modified locally
                 if (!isRecentlyUpdated()) {
-                  const idx = res.findIndex(l => l.id === r.id);
-                  res[idx] = r;
+                  const idx = res.findIndex(l => String(l.id) === rid);
+                  if (idx !== -1) res[idx] = r;
                 }
               }
             });
+
+            // 2. Handle Deletions (If missing from remote and NOT recently created/modified locally, remove)
+            if (!isRecentlyUpdated()) {
+              res = res.filter(l => {
+                const lid = String(l.id);
+                // If it's a temp ID (starts with p/g/c + timestamp) allow it to stay until synced
+                if (lid.match(/^[pgc]\d{10,}/)) return true; 
+                return remoteIds.has(lid);
+              });
+            }
             return res;
           };
 
-          if (data.coaches)  setCoaches(prev => merge(prev, data.coaches));
-          if (data.payments) setPayments(prev => merge(prev, data.payments));
+          if (data.coaches)  setCoaches(prev => merge(prev, data.coaches, 'coaches'));
+          if (data.payments) setPayments(prev => merge(prev, data.payments, 'payments'));
           if (data.players) {
             const repaired = data.players.map(p => {
               if (p.email && p.password) return p;
@@ -811,14 +836,14 @@ export default function App() {
                 password: p.password || `najd_${phone.slice(-4)}`
               };
             });
-            setPlayers(prev => merge(prev, repaired));
+            setPlayers(prev => merge(prev, repaired, 'players'));
           }
-          if (data.groups)   setGroups(prev => merge(prev, data.groups));
-          if (data.attendance) setAttendance(prev => merge(prev, data.attendance));
-          if (data.coachesAttendance) setCoachesAttendance(prev => merge(prev, data.coachesAttendance));
-          if (data.evals) setEvals(prev => merge(prev, data.evals));
-          if (data.messages) setMessages(prev => merge(prev, data.messages));
-          if (data.trainings) setTrainings(prev => merge(prev, data.trainings));
+          if (data.groups)   setGroups(prev => merge(prev, data.groups, 'groups'));
+          if (data.attendance) setAttendance(prev => merge(prev, data.attendance, 'attendance'));
+          if (data.coachesAttendance) setCoachesAttendance(prev => merge(prev, data.coachesAttendance, 'coachesAttendance'));
+          if (data.evals) setEvals(prev => merge(prev, data.evals, 'evals'));
+          if (data.messages) setMessages(prev => merge(prev, data.messages, 'messages'));
+          if (data.trainings) setTrainings(prev => merge(prev, data.trainings, 'trainings'));
         } catch (e) {
           console.error("API Fetch Error:", e);
         }
@@ -854,22 +879,20 @@ export default function App() {
           const next = val(prev);
           setLastUpdate();
           if (API_URL) {
-            const changed = next.filter(item => {
-              const old = prev.find(x => x.id === item.id);
-              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            const addedOrChanged = next.filter(n => {
+              const old = prev.find(p => p.id === n.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(n);
             });
-            changed.forEach(item => {
-              fetch(`${API_URL}/api/groups`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(item)
-              }).catch(console.error);
-            });
+            const deleted = prev.filter(p => !next.find(n => n.id === p.id));
+            addedOrChanged.forEach(i => syncWithAPI('groups', i));
+            deleted.forEach(i => syncWithAPI('groups', i, true));
           }
           return next;
         });
       } else {
         setGroups(val);
+        setLastUpdate();
+        if (API_URL && Array.isArray(val)) val.forEach(i => syncWithAPI('groups', i));
       }
     },
     coaches, 
@@ -879,22 +902,20 @@ export default function App() {
           const next = val(prev);
           setLastUpdate();
           if (API_URL) {
-            const changed = next.filter(item => {
-              const old = prev.find(x => x.id === item.id);
-              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            const addedOrChanged = next.filter(n => {
+              const old = prev.find(p => p.id === n.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(n);
             });
-            changed.forEach(item => {
-              fetch(`${API_URL}/api/coaches`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(item)
-              }).catch(console.error);
-            });
+            const deleted = prev.filter(p => !next.find(n => n.id === p.id));
+            addedOrChanged.forEach(i => syncWithAPI('coaches', i));
+            deleted.forEach(i => syncWithAPI('coaches', i, true));
           }
           return next;
         });
       } else {
         setCoaches(val);
+        setLastUpdate();
+        if (API_URL && Array.isArray(val)) val.forEach(i => syncWithAPI('coaches', i));
       }
     },
     players, 
@@ -904,22 +925,20 @@ export default function App() {
           const next = val(prev);
           setLastUpdate();
           if (API_URL) {
-            const changed = next.filter(item => {
-              const old = prev.find(x => x.id === item.id);
-              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            const addedOrChanged = next.filter(n => {
+              const old = prev.find(p => p.id === n.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(n);
             });
-            changed.forEach(item => {
-              fetch(`${API_URL}/api/players`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(item)
-              }).catch(console.error);
-            });
+            const deleted = prev.filter(p => !next.find(n => n.id === p.id));
+            addedOrChanged.forEach(i => syncWithAPI('players', i));
+            deleted.forEach(i => syncWithAPI('players', i, true));
           }
           return next;
         });
       } else {
         setPlayers(val);
+        setLastUpdate();
+        if (API_URL && Array.isArray(val)) val.forEach(i => syncWithAPI('players', i));
       }
     },
     parents: (players || []).reduce((acc, p) => {
@@ -935,22 +954,20 @@ export default function App() {
           const next = val(prev);
           setLastUpdate();
           if (API_URL) {
-            const changed = next.filter(item => {
-              const old = prev.find(x => x.id === item.id);
-              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            const addedOrChanged = next.filter(n => {
+              const old = prev.find(p => p.id === n.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(n);
             });
-            changed.forEach(item => {
-              fetch(`${API_URL}/api/payments`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(item)
-              }).catch(console.error);
-            });
+            const deleted = prev.filter(p => !next.find(n => n.id === p.id));
+            addedOrChanged.forEach(i => syncWithAPI('payments', i));
+            deleted.forEach(i => syncWithAPI('payments', i, true));
           }
           return next;
         });
       } else {
         setPayments(val);
+        setLastUpdate();
+        if (API_URL && Array.isArray(val)) val.forEach(i => syncWithAPI('payments', i));
       }
     },
     attendance, 
