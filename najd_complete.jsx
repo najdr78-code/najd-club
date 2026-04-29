@@ -677,7 +677,10 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {actions}
-          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.5.0</div>
+          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.5.1</div>
+          {syncStatus === "syncing" && <div style={{ fontSize: 10, color: "#D8A435", marginRight: 10 }}>🔄 جاري الحفظ...</div>}
+          {syncStatus === "success" && <div style={{ fontSize: 10, color: "#10B981", marginRight: 10 }}>✅ تم الحفظ</div>}
+          {syncStatus === "error"   && <div style={{ fontSize: 10, color: "#EF4444", marginRight: 10 }}>⚠️ فشل التزامن</div>}
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -729,13 +732,40 @@ export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('najd_theme') || "dark");
   const [globalError, setGlobalError] = useState(null);
 
+  const merge = (local, remote, type) => {
+    if (!remote || isRecentlyUpdated()) return local; // Critical: If recently updated, NEVER merge remote data
+    let res = [...local];
+    const remoteIds = new Set(remote.map(r => String(r.id)));
+    const localIds  = new Set(local.map(l => String(l.id)));
+    
+    // 1. Add/Update from Remote
+    remote.forEach(r => {
+      const rid = String(r.id);
+      if (!localIds.has(rid)) {
+        res.push(r);
+      } else {
+        const idx = res.findIndex(l => String(l.id) === rid);
+        if (idx !== -1) res[idx] = r;
+      }
+    });
+
+    // 2. Handle Deletions (Strict check)
+    res = res.filter(l => {
+      const lid = String(l.id);
+      if (lid.match(/^[pgc]\d{10,}/)) return true; // Keep local temporary items
+      return remoteIds.has(lid);
+    });
+    return res;
+  };
+
+  const [syncStatus, setSyncStatus] = useState("idle");
+
   // Global debug logger
   useEffect(() => {
     console.log("App mounted - Debugging enabled");
     window.onerror = (msg, url, line) => console.error(`Error: ${msg} at ${url}:${line}`);
   }, []);
 
-  // Global error listener for remote debugging
   useEffect(() => {
     const handleErr = (e) => setGlobalError({ message: e.message, stack: e.error?.stack });
     window.addEventListener('error', handleErr);
@@ -743,22 +773,32 @@ export default function App() {
   }, []);
 
   // Coordinate updates between tabs with Atomic Sync Lock
-  const setLastUpdate = () => localStorage.setItem('najd_last_update', Date.now().toString());
+  const setLastUpdate = () => {
+    localStorage.setItem('najd_last_update', Date.now().toString());
+    setSyncStatus("success");
+    setTimeout(() => setSyncStatus("idle"), 3000);
+  };
   const isRecentlyUpdated = () => {
     const last = parseInt(localStorage.getItem('najd_last_update') || '0');
-    return (Date.now() - last < 25000); // 25s lock to allow server to process POSTs
+    return (Date.now() - last < 25000); 
   };
 
   // Atomic API Sync Helper
   const syncWithAPI = async (type, item, isDelete = false) => {
     if (!API_URL) return;
+    setSyncStatus("syncing");
     try {
-      await fetch(`${API_URL}/api/${type}${isDelete ? '/delete' : ''}`, {
+      const res = await fetch(`${API_URL}/api/${type}${isDelete ? '/delete' : ''}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(isDelete ? { id: item.id } : item)
       });
-    } catch (e) { console.error(`Sync Error (${type}):`, e); }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setSyncStatus("success");
+    } catch (e) { 
+      console.error(`🔴 Sync Error (${type}):`, e); 
+      setSyncStatus("error");
+    }
   };
 
   // Sync logged-in user if their data (like perms) changes in the main list
@@ -791,38 +831,6 @@ export default function App() {
           const data = await res.json();
           
           if (isRecentlyUpdated()) return; 
-
-          const merge = (local, remote, type) => {
-            if (!remote) return local;
-            let res = [...local];
-            const remoteIds = new Set(remote.map(r => String(r.id)));
-            const localIds  = new Set(local.map(l => String(l.id)));
-            
-            // 1. Add/Update from Remote
-            remote.forEach(r => {
-              const rid = String(r.id);
-              if (!localIds.has(rid)) {
-                res.push(r);
-              } else {
-                // Only update if not recently modified locally
-                if (!isRecentlyUpdated()) {
-                  const idx = res.findIndex(l => String(l.id) === rid);
-                  if (idx !== -1) res[idx] = r;
-                }
-              }
-            });
-
-            // 2. Handle Deletions (If missing from remote and NOT recently created/modified locally, remove)
-            if (!isRecentlyUpdated()) {
-              res = res.filter(l => {
-                const lid = String(l.id);
-                // If it's a temp ID (starts with p/g/c + timestamp) allow it to stay until synced
-                if (lid.match(/^[pgc]\d{10,}/)) return true; 
-                return remoteIds.has(lid);
-              });
-            }
-            return res;
-          };
 
           if (data.coaches)  setCoaches(prev => merge(prev, data.coaches, 'coaches'));
           if (data.payments) setPayments(prev => merge(prev, data.payments, 'payments'));
@@ -1097,7 +1105,7 @@ export default function App() {
 
   if (globalError) return (
     <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.4.1)</h2>
+      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.5.1)</h2>
       <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
         <b>Error:</b> {globalError.message}
         <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{globalError.stack}</pre>
@@ -1153,7 +1161,7 @@ export default function App() {
   } catch (err) {
     return (
       <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.4.1)</h2>
+        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.5.1)</h2>
         <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
           <b>Error:</b> {err.message}
           <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{err.stack}</pre>
@@ -2680,14 +2688,14 @@ function ParentPortal(props) {
       t, 
       forceRefresh 
     } = props;
-  const parent = (parents || []).find(p => p && String(p.id) == String(user?.id)) || { name: user?.name, id: user?.id };
-  
-  // 2. Filter players by parentId or Phone (Dual-Matching)
+  const parentId = String(user.id).replace("par_", "").trim().toLowerCase();
+  const parent = (parents || []).find(p => p && String(p.id).trim().toLowerCase() === parentId) || { name: user?.name, id: user?.id };
   const myPlayers = (players || []).filter(p => {
     if (!p) return false;
-    const matchId = p.parentId && String(p.parentId) === String(user?.id);
-    const matchPhone = p.phone && String(p.phone) === String(user?.phone);
-    return matchId || matchPhone;
+    const pID = String(p.parentId || "").trim().toLowerCase();
+    const pPhone = String(p.phone || "").trim().toLowerCase();
+    // Match exactly or if one contains the other (robust against leading zeros or prefixes)
+    return pID === parentId || pPhone === parentId || (pID && parentId.includes(pID)) || (pID && pID.includes(parentId));
   });
   
   const [activeChild, setActiveChild] = useState(myPlayers[0]?.id);
