@@ -482,9 +482,23 @@ function Footer({ t }) {
   const theme = t || THEMES.dark;
   return (
     <div style={{ textAlign: "center", padding: "20px", marginTop: "auto", borderTop: `1px solid ${theme.border}`, fontSize: 11, color: theme.textDim, opacity: 0.8 }}>
-      <div>تم تطوير نظام إدارة الأكاديميات والنوادي الرياضية <span style={{ color: "#7C49A8", fontWeight: 700 }}>" مُحْـكَـم (Mohkam) "</span></div>
-      <div style={{ marginTop: 4 }}>بواسطة <span style={{ fontWeight: 600 }}>Badawi for Software Solutions and Marketing</span></div>
-      <div style={{ marginTop: 4, direction: "ltr" }}>+201091089983</div>
+      <div>
+        تم تطوير نظام إدارة الأكاديميات والنوادي الرياضية 
+        <a href="https://mohkam.netlify.app" target="_blank" rel="noopener noreferrer" style={{ color: "#7C49A8", fontWeight: 700, textDecoration: "none", marginRight: 4 }}>
+          " مُحْـكَـم (Mohkam) "
+        </a>
+      </div>
+      <div style={{ marginTop: 4 }}>
+        بواسطة 
+        <a href="https://past-series-479963.framer.app/" target="_blank" rel="noopener noreferrer" style={{ color: theme.text, fontWeight: 600, textDecoration: "none", marginLeft: 4 }}>
+          Badawi for Software Solutions and Marketing
+        </a>
+      </div>
+      <div style={{ marginTop: 4, direction: "ltr" }}>
+        <a href="https://wa.me/201091089983" target="_blank" rel="noopener noreferrer" style={{ color: "#10B981", textDecoration: "none", fontWeight: 700 }}>
+          +201091089983
+        </a>
+      </div>
     </div>
   );
 }
