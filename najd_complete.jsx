@@ -1391,22 +1391,31 @@ function AdminOverview({ players, coaches, groups, payments, attendance, t }) {
           })}
         </Card>
         <Card t={t} style={{ padding: 22 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: "#EF4444", marginBottom: 14 }}>⚠️ لم يدفعوا اشتراك أبريل</div>
           {(() => {
+            const monthsArr = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+            const curMonth = monthsArr[new Date().getMonth()];
             const unpaid = players.filter(p => 
               p.status === "نشط" && 
-              !payments.some(pay => String(pay.playerId) === String(p.id) && pay.type === "subscription" && pay.month.includes("أبريل"))
+              !payments.some(pay => String(pay.playerId) === String(p.id) && pay.type === "subscription" && pay.month.includes(curMonth))
             );
-            if (unpaid.length === 0) return <div style={{ textAlign: "center", color: t.textDim, fontSize: 11, padding: 20 }}>✅ الكل دفع اشتراك أبريل</div>;
-            return unpaid.map(p => (
-              <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: `1px solid ${t.border}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                  <Avatar name={p.name} size={28} color="#EF4444"/>
-                  <div><div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{p.name}</div><div style={{ fontSize: 10, color: t.textDim }}>{groups.find(g => g.id === p.groupId)?.name}</div></div>
-                </div>
-                <Chip text="متأخر" color="#EF4444"/>
-              </div>
-            ));
+            return (
+              <>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "#EF4444", marginBottom: 14 }}>⚠️ لم يدفعوا اشتراك {curMonth}</div>
+                {unpaid.length === 0 ? (
+                  <div style={{ textAlign: "center", color: t.textDim, fontSize: 11, padding: 20 }}>✅ الكل دفع اشتراك {curMonth}</div>
+                ) : (
+                  unpaid.map(p => (
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: `1px solid ${t.border}` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                        <Avatar name={p.name} size={28} color="#EF4444"/>
+                        <div><div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{p.name}</div><div style={{ fontSize: 10, color: t.textDim }}>{groups.find(g => g.id === p.groupId)?.name}</div></div>
+                      </div>
+                      <Chip text="متأخر" color="#EF4444"/>
+                    </div>
+                  ))
+                )}
+              </>
+            );
           })()}
         </Card>
       </div>
