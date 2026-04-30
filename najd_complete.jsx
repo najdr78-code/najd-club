@@ -1226,7 +1226,7 @@ function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, p
       {tab === "attendance" && <AdminAttendance groups={groups} players={players} coaches={coaches} attendance={attendance} setAttendance={setAttendance} coachesAttendance={coachesAttendance} setCoachesAttendance={setCoachesAttendance} t={t} />}
       {tab === "coaches"   && <AdminCoaches coaches={coaches} setCoaches={setCoaches} groups={groups} players={players} payments={payments} t={t} />}
       {tab === "players"   && <AdminPlayers players={players} setPlayers={setPlayers} groups={groups} parents={parents} evals={evals} coaches={coaches} t={t} />}
-      {tab === "payments"  && <AdminPayments payments={payments} setPayments={setPayments} players={players} coaches={coaches} prices={prices} t={t} />}
+      {tab === "payments"  && <AdminPayments payments={payments} setPayments={setPayments} players={players} coaches={coaches} prices={prices} messages={messages} setMessages={setMessages} t={t} />}
       {tab === "prices"    && <AdminPrices prices={prices} setPrices={setPrices} t={t} />}
       {tab === "schedule"  && <AdminTrainings trainings={trainings} setTrainings={setTrainings} groups={groups} coaches={coaches} t={t} />}
       {tab === "messages"  && <Messaging messages={messages} setMessages={setMessages} meId="admin" meName="الإدارة" coaches={coaches} parents={parents} t={t} />}
@@ -2004,11 +2004,145 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals = [], coache
   );
 }
 
+/* ── Invoice Modal ──────────────────────────────────── */
+function InvoiceModal({ payment, allPayments, player, onClose, onSendMessage, t }) {
+  // Collect all payments for the same player in the same month as this payment
+  const invoiceId = `INV-${Date.now()}`;
+  const sameMonthPays = allPayments.filter(p =>
+    String(p.playerId) === String(payment.playerId) &&
+    p.month === payment.month
+  );
+  const totalAmount = sameMonthPays.reduce((a, p) => a + (p.amount || 0), 0);
+  const dateObj = new Date(payment.date);
+  const months = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+  const dateStr = `${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+
+  const terms = [
+    "لا يحق للمشترك المطالبة بأي مبلغ في حال أراد عدم الاكمال في التدريبات لأي ظرف كان.",
+    "في حال اكتشفت الأكاديمية أي مشكلة مرضية أو سلوكية على المشترك لم يتم الإفصاح عنها يحق للأكاديمية استبعاد المشترك بدون الرجوع لولي الأمر.",
+    "المشترك هو المسؤول عن نظافة اللبس المخصص للأكاديمية ولا يسمح له بدخول أي تمرين ألا به ولا يسمح له بمشاركة المشترك في أي نشاط في حال كان اللبس غير لائق.",
+    "يتدرب المشترك ١٢ تدريب شهرياً يكون من بداية تاريخ أول تدريب.",
+    "الأكاديمية حلقة وصل بين المشترك وصاحب الباص والأمر هو المسؤول عن إرسال الابن واستقباله بعد الانتهاء من التدريب.",
+    "الأكاديمية مسؤوليه كامله عن استقبال المشتركين وتوديعهم ومتابعة حركة الباص."
+  ];
+
+  const printInvoice = () => {
+    const printContent = document.getElementById('invoice-print-area').innerHTML;
+    const w = window.open('', '_blank');
+    w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>فاتورة - ${player?.name}</title>
+    <style>
+      body{font-family:'Arial',sans-serif;direction:rtl;padding:30px;max-width:700px;margin:0 auto;color:#111}
+      .logo{text-align:center;margin-bottom:16px}
+      .logo img{height:80px}
+      h2{text-align:center;text-decoration:underline;font-size:18px;margin:0 0 4px}
+      h3{text-align:center;font-size:15px;margin:0 0 24px}
+      .info p{margin:6px 0;font-size:14px}
+      .items-table{width:100%;border-collapse:collapse;margin:16px 0}
+      .items-table th,.items-table td{border:1px solid #ccc;padding:8px 12px;font-size:13px}
+      .items-table th{background:#f5f5f5;font-weight:700}
+      .total{font-size:15px;font-weight:700;margin:12px 0}
+      .terms{margin-top:20px;font-size:12px}
+      .terms h4{font-weight:700;margin-bottom:8px}
+      .terms ol{padding-right:18px}
+      .terms li{margin-bottom:5px;line-height:1.5}
+      .sig{display:flex;justify-content:space-between;margin-top:60px;font-size:13px}
+      .sig-box{text-align:center;width:200px}
+      .sig-line{border-top:1px solid #666;margin-top:40px;padding-top:6px}
+      @media print{body{padding:0}}
+    </style>
+    </head><body>${printContent}</body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); w.close(); }, 400);
+  };
+
+  const sendViaMessages = () => {
+    const text = `🧾 فاتورة إلكترونية - نادي نجد\n\nاسم اللاعب: ${player?.name}\nالشهر: ${payment.month}\nتاريخ الإصدار: ${dateStr}\n\nالبنود:\n${sameMonthPays.map(p => `• ${PAY_TYPES[p.type]?.label || p.type}: ${fmtMoney(p.amount)}`).join('\n')}\n\nإجمالي المبلغ: ${fmtMoney(totalAmount)}\n\nشكراً لثقتكم في نادي نجد الرياض 🌟`;
+    onSendMessage && onSendMessage(text);
+    onClose();
+  };
+
+  const invoiceHTML = `
+    <div class="logo">
+      <img src="/logo2.png" alt="نادي نجد" onerror="this.style.display='none'"/>
+    </div>
+    <h2>نموذج فاتورة مشترك نادي نجد الرياض</h2>
+    <h3>فاتورة مشترك</h3>
+    <div class="info">
+      <p><strong>رقم الفاتورة:</strong> ${invoiceId}</p>
+      <p><strong>اسم اللاعب:</strong> ${player?.name || '—'}</p>
+      <p><strong>تاريخ الإصدار:</strong> ${dateStr}</p>
+      <p><strong>الشهر:</strong> ${payment.month}</p>
+      ${payment.note ? `<p><strong>ملاحظات إضافية:</strong> ${payment.note}</p>` : ''}
+    </div>
+    <table class="items-table">
+      <thead><tr><th>#</th><th>البند</th><th>التفاصيل</th><th>المبلغ</th></tr></thead>
+      <tbody>
+        ${sameMonthPays.map((p, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${PAY_TYPES[p.type]?.icon || ''} ${PAY_TYPES[p.type]?.label || p.type}</td>
+            <td>${p.month}</td>
+            <td style="text-align:left">${fmtMoney(p.amount)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    <p class="total">إجمالي مبلغ الاشتراك المستحق: ${fmtMoney(totalAmount)}</p>
+    <div class="terms">
+      <h4>شروط:</h4>
+      <ol>${terms.map(t => `<li>${t}</li>`).join('')}</ol>
+    </div>
+    <div class="sig">
+      <div class="sig-box">
+        <div>توقيع ولي الأمر</div>
+        <div class="sig-line"></div>
+      </div>
+    </div>
+  `;
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.85)", display:"grid", placeItems:"center", zIndex:99999, backdropFilter:"blur(8px)" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: t.bg2, border:`1px solid ${t.border2}`, borderRadius:22, padding:30, width:"min(720px,95vw)", maxHeight:"90vh", overflowY:"auto", animation:"scaleIn .25s ease", color:t.text, direction:"rtl" }}>
+        {/* Header */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+          <div style={{ fontWeight:800, fontSize:16, color:t.text }}>🧾 فاتورة إلكترونية</div>
+          <button onClick={onClose} style={{ background:"transparent", border:"none", color:t.textDim, fontSize:22, cursor:"pointer" }}>✕</button>
+        </div>
+
+        {/* Invoice preview area */}
+        <div id="invoice-print-area" style={{ background:"#fff", color:"#111", borderRadius:14, padding:28, marginBottom:20, direction:"rtl", fontFamily:"Arial,sans-serif" }}
+          dangerouslySetInnerHTML={{ __html: invoiceHTML }}/>
+
+        {/* Action buttons */}
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+          <button onClick={printInvoice}
+            style={{ flex:1, minWidth:160, height:46, borderRadius:12, border:"none", background:"linear-gradient(135deg,#7C49A8,#A855F7)", color:"#fff", fontSize:14, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, fontFamily:"'Cairo',sans-serif" }}>
+            🖨️ طباعة / مشاركة PDF
+          </button>
+          {onSendMessage && (
+            <button onClick={sendViaMessages}
+              style={{ flex:1, minWidth:160, height:46, borderRadius:12, border:`1px solid ${t.border}`, background:t.bg, color:t.text, fontSize:14, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, fontFamily:"'Cairo',sans-serif" }}>
+              📨 إرسال لولي الأمر عبر الرسائل
+            </button>
+          )}
+          <button onClick={onClose}
+            style={{ height:46, borderRadius:12, border:`1px solid ${t.border}`, background:"transparent", color:t.textDim, fontSize:13, cursor:"pointer", padding:"0 18px", fontFamily:"'Cairo',sans-serif" }}>
+            إغلاق
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Admin Payments ─────────────────────────────────── */
-function AdminPayments({ payments, setPayments, players, coaches, prices, t }) {
+function AdminPayments({ payments, setPayments, players, coaches, prices, messages, setMessages, t }) {
   const [modal, setModal] = useState(false);
   const [fc, setFc] = useState("الكل");
   const [ft, setFt] = useState("الكل");
+  const [invoiceItem, setInvoiceItem] = useState(null);
   
   const MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"].map(m => `${m} 2026`);
   
@@ -2071,7 +2205,7 @@ function AdminPayments({ payments, setPayments, players, coaches, prices, t }) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: t.bg, borderBottom: `1px solid ${t.border}` }}>
-              {["اللاعب", "النوع", "الشهر", "المبلغ", "المستلم", "التاريخ", "ملاحظة"].map(h => (
+              {["اللاعب", "النوع", "الشهر", "المبلغ", "المستلم", "التاريخ", "ملاحظة", "فاتورة"].map(h => (
                 <th key={h} style={{ padding: "12px 14px", textAlign: "right", fontSize: 10, color: t.textDim, fontWeight: 700 }}>{h}</th>
               ))}
             </tr>
@@ -2088,6 +2222,11 @@ function AdminPayments({ payments, setPayments, players, coaches, prices, t }) {
                   <td style={{ padding: "11px 14px", fontSize: 11, color: "#A78BFA", fontWeight: 600 }}>{p.coachName || "الإدارة"}</td>
                   <td style={{ padding: "11px 14px", fontSize: 11, color: t.textDim }}>{p.date}</td>
                   <td style={{ padding: "11px 14px", fontSize: 11, color: t.textDim }}>{p.note || "—"}</td>
+                  <td style={{ padding: "11px 14px" }}>
+                    <button onClick={() => setInvoiceItem(p)}
+                      style={{ background:"rgba(124,73,168,.12)", border:"1px solid rgba(124,73,168,.3)", borderRadius:8, color:"#A78BFA", fontSize:11, fontWeight:700, cursor:"pointer", padding:"5px 10px", fontFamily:"'Cairo',sans-serif" }}
+                      title="عرض الفاتورة">🧾</button>
+                  </td>
                 </tr>
               );
             })}
@@ -2098,6 +2237,20 @@ function AdminPayments({ payments, setPayments, players, coaches, prices, t }) {
           <span style={{ fontWeight: 800, color: "#10B981" }}>الإجمالي: {fmtMoney(filtered.reduce((a, p) => a + p.amount, 0))}</span>
         </div>
       </Card>
+      {invoiceItem && (
+        <InvoiceModal
+          payment={invoiceItem}
+          allPayments={payments}
+          player={players.find(p => String(p.id) === String(invoiceItem.playerId))}
+          onClose={() => setInvoiceItem(null)}
+          onSendMessage={setMessages ? (text) => {
+            const parentId = players.find(p => String(p.id) === String(invoiceItem.playerId))?.parentId;
+            if (!parentId) return;
+            setMessages(ms => [...ms, { id:`msg${Date.now()}`, from:"admin", fromName:"الإدارة", to:parentId, toName:invoiceItem.playerName, text, date:new Date().toISOString().split("T")[0], read:false }]);
+          } : null}
+          t={t}
+        />
+      )}
       {modal && (
         <Modal title="تسجيل دفعة جديدة" onClose={() => setModal(false)} t={t}>
           <Input label="اللاعب" value={form.playerId} onChange={v => setForm(f => ({ ...f, playerId: v }))} options={players.map(p => ({ v: p.id, l: p.name }))} t={t}/>
@@ -2943,10 +3096,10 @@ function ParentPortal(props) {
           ))}
         </div>
       )}
-      {tab === "overview"   && <ParentOverview child={child} childGroup={childGroup} childCoach={childCoach} childPays={childPays} childEvals={childEvals} prices={prices} coachesList={coachesList} t={t} userId={user.id}/>}
+      {tab === "overview"   && <ParentOverview child={child} childGroup={childGroup} childCoach={childCoach} childPays={childPays} childEvals={childEvals} childAtt={childAtt} prices={prices} coachesList={coachesList} t={t} userId={user.id}/>}
       {tab === "scores"     && <ParentScores child={child} childEvals={childEvals} childCoach={childCoach} t={t}/>}
       {tab === "attendance" && <ParentAttendance child={child} childAtt={childAtt} t={t}/>}
-      {tab === "payments"   && <ParentPayments child={child} childPays={childPays} prices={prices} t={t}/>}
+      {tab === "payments"   && <ParentPayments child={child} childPays={childPays} childAtt={childAtt} prices={prices} t={t}/>}
       {tab === "schedule"   && <ParentSchedule childGroup={childGroup} childCoach={childCoach} trainings={trainings} t={t}/>}
       {tab === "messages"   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={parent?.name || user?.name} coaches={coachesList} parents={parents} players={players} t={t} role="parent" myCoachIds={myCoachIds} />}
     </Shell>
@@ -2962,7 +3115,7 @@ function ParentPortal(props) {
   }
 }
 
-function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, prices, coachesList, t, userId }) {
+function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, childAtt, prices, coachesList, t, userId }) {
   if (!child) return (
     <div style={{ textAlign: "center", color: t.textFaint, padding: 60 }}>
       <div style={{ fontSize: 40, marginBottom: 20 }}>🔍</div>
@@ -3007,8 +3160,19 @@ function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 18 }} className="s2">
         <StatCard label="الأهداف"   counter={child.goals || 0}         icon="⚽" color="#EF4444" t={t}/>
         <StatCard label="التمريرات" counter={child.assists || 0}       icon="🎯" color="#10B981" t={t}/>
-        <StatCard label="الحضور"    counter={child.attendancePct ? `${child.attendancePct}%` : "—"} icon="📅" color="#7C49A8" t={t}/>
-        <StatCard label="التقييم"   counter={child.score || "—"}       icon="⭐" color="#F59E0B" t={t}/>
+        <StatCard label="الحضور"    counter={(() => {
+          // Calculate real attendance from childAtt records
+          const sessions = childAtt || [];
+          if (!sessions.length) return child.attendancePct ? `${child.attendancePct}%` : '—';
+          let present = 0, total = 0;
+          sessions.forEach(a => { if (a.records && a.records[String(child.id)]) { total++; if (a.records[String(child.id)] === 'حاضر') present++; } });
+          return total > 0 ? `${Math.round(present/total*100)}%` : child.attendancePct ? `${child.attendancePct}%` : '—';
+        })()} icon="📅" color="#7C49A8" t={t}/>
+        <StatCard label="التقييم"   counter={(() => {
+          const latestEval = childEvals.slice(-1)[0];
+          if (!latestEval) return '—';
+          return Math.round((latestEval.speed + latestEval.technique + latestEval.teamwork) / 3);
+        })()} icon="⭐" color="#F59E0B" t={t}/>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }} className="s3">
         <Card t={t} style={{ padding: 22 }}>
@@ -3140,7 +3304,8 @@ function ParentAttendance({ child, childAtt, t }) {
   );
 }
 
-function ParentPayments({ child, childPays, prices, t }) {
+function ParentPayments({ child, childPays, childAtt, prices, t, messages, setMessages }) {
+  const [invoiceItem, setInvoiceItem] = useState(null);
   const total     = childPays.reduce((a, p) => a + p.amount, 0);
   const monthPaid = childPays.some(p => p.type === "subscription" && p.month === "أبريل 2026");
   const byType    = Object.entries(PAY_TYPES).map(([k, v]) => ({ k, ...v, paid: childPays.filter(p => p.type === k).reduce((a, p) => a + p.amount, 0), count: childPays.filter(p => p.type === k).length }));
@@ -3168,7 +3333,7 @@ function ParentPayments({ child, childPays, prices, t }) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: t.bg, borderBottom: `1px solid ${t.border}` }}>
-              {["النوع", "الشهر", "المبلغ", "استلم المدرب", "التاريخ", "ملاحظة"].map(h => (
+              {["النوع", "الشهر", "المبلغ", "استلم المدرب", "التاريخ", "ملاحظة", "فاتورة"].map(h => (
                 <th key={h} style={{ padding: "11px 14px", textAlign: "right", fontSize: 10, color: t.textDim, fontWeight: 700 }}>{h}</th>
               ))}
             </tr>
@@ -3184,12 +3349,26 @@ function ParentPayments({ child, childPays, prices, t }) {
                   <td style={{ padding: "10px 14px", fontSize: 11, color: "#A78BFA", fontWeight: 600 }}>{p.coachName}</td>
                   <td style={{ padding: "10px 14px", fontSize: 11, color: t.textDim }}>{p.date}</td>
                   <td style={{ padding: "10px 14px", fontSize: 11, color: t.textDim }}>{p.note || "—"}</td>
+                  <td style={{ padding: "10px 14px" }}>
+                    <button onClick={() => setInvoiceItem(p)}
+                      style={{ background:"rgba(16,185,129,.1)", border:"1px solid rgba(16,185,129,.3)", borderRadius:8, color:"#10B981", fontSize:11, fontWeight:700, cursor:"pointer", padding:"5px 10px", fontFamily:"'Cairo',sans-serif" }}
+                      title="عرض الفاتورة">🧾</button>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </Card>
+      {invoiceItem && (
+        <InvoiceModal
+          payment={invoiceItem}
+          allPayments={childPays}
+          player={child}
+          onClose={() => setInvoiceItem(null)}
+          t={t}
+        />
+      )}
     </div>
   );
 }
