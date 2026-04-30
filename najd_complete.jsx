@@ -2063,7 +2063,7 @@ function InvoiceModal({ payment, allPayments, player, onClose, onSendMessage, t 
 
   const buildInvoiceHTML = () => `
     <div class="inv-header">
-      <img class="inv-logo" src="/logo2.png" alt="نادي نجد" onerror="this.style.display='none'"/>
+      <img class="inv-logo" src="/logo.png" alt="نادي نجد" onerror="this.style.display='none'"/>
       <div class="inv-club-info">
         <div class="inv-club-name">نادي نجد الرياض</div>
         <div class="inv-club-sub">أكاديمية كرة القدم</div>
