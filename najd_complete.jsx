@@ -1937,7 +1937,15 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals = [], coache
                       );
                     })()}
                   </td>
-                  <td style={{ padding: "11px 14px", fontSize: 13, fontWeight: 800, color: p.score > 80 ? "#10B981" : p.score > 60 ? "#F59E0B" : "#EF4444" }}>{p.score}</td>
+                  <td style={{ padding: "11px 14px" }}>
+                    {(() => {
+                      const playerEvals = (evals || []).filter(e => String(e.playerId) == String(p.id));
+                      const last = playerEvals.slice(-1)[0];
+                      if (!last) return <span style={{ fontSize: 11, color: t.textFaint }}>—</span>;
+                      const evalScore = Math.round((last.speed + last.technique + last.teamwork) / 3);
+                      return <span style={{ fontSize: 13, fontWeight: 800, color: evalScore > 80 ? "#10B981" : evalScore > 60 ? "#F59E0B" : "#EF4444" }}>{evalScore}</span>;
+                    })()}
+                  </td>
                   <td style={{ padding: "11px 14px" }}>
                     <button onClick={e => { e.stopPropagation(); setPlayers(ps => ps.filter(x => x.id !== p.id)); }}
                       style={{ width: 26, height: 26, borderRadius: 7, border: "none", background: "rgba(239,68,68,.1)", color: "#EF4444", cursor: "pointer", display: "grid", placeItems: "center" }}>
@@ -1968,8 +1976,8 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals = [], coache
           <div style={{ display: "flex", gap: 10 }}>
             <Btn onClick={() => { 
               const phone = form.phone || Date.now().toString();
-              const generatedEmail = `najd_${phone}@najd.sa`;
-              const generatedPass  = `najd_${phone.slice(-4)}`;
+              const generatedEmail = `player_${phone}@najd.sa`;
+              const generatedPass  = phone.slice(-4);
               setPlayers(ps => [...ps, { ...form, id: `p${Date.now()}`, email: generatedEmail, password: generatedPass, score: +form.score || 80, attendancePct: 90, goals: 0, assists: 0, joinDate: new Date().toISOString().split("T")[0] }]); 
               setModal(null); 
             }} style={{ flex: 1 }}>✅ إضافة وتوليد بيانات الدخول</Btn>

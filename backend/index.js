@@ -86,7 +86,8 @@ app.get('/api/initial-data', async (req, res) => {
       coachesAttendance,
       evals,
       messages,
-      trainings
+      trainings,
+      parents: await prisma.parent.findMany({ include: { user: true } })
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
