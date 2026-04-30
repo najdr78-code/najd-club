@@ -27,7 +27,7 @@ model Coach {
   exp         Int?
   cert        String?
   salary      Float?
-  groupId     String?      @unique
+  groupId     String?      // REMOVED @unique - a coach can only have one group but constraint was causing upsert failures
   perms       Json?
   attendance  Attendance[]
   group       Group?       @relation("GroupCoach", fields: [groupId], references: [id])
@@ -62,11 +62,11 @@ model Player {
   goals         Int          @default(0)
   assists       Int          @default(0)
   attendancePct Int          @default(90)
-  groupId       String
+  groupId       String?
   parentId      String
   evaluations   Evaluation[]
   payments      Payment[]
-  group         Group        @relation(fields: [groupId], references: [id])
+  group         Group?       @relation(fields: [groupId], references: [id])
   parent        Parent       @relation(fields: [parentId], references: [id])
   user          User?        @relation(fields: [userId], references: [id])
 }
@@ -75,7 +75,7 @@ model Group {
   id         String       @id @default(cuid())
   name       String
   color      String       @default("#06B6D4")
-  coachId    String?      @unique
+  coachId    String?      // REMOVED @unique - the app logic handles this
   attendance Attendance[]
   coach      Coach?       @relation("GroupCoach")
   players    Player[]

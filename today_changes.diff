@@ -1,0 +1,816 @@
+diff --git a/najd_complete.jsx b/najd_complete.jsx
+index 602a901..350b11c 100644
+--- a/najd_complete.jsx
++++ b/najd_complete.jsx
+@@ -705,6 +705,7 @@ export default function App() {
+     const saved = localStorage.getItem('najd_logged_user');
+     return saved ? JSON.parse(saved) : null;
+   });
++
+   const [attendance, setAttendance] = useState(() => JSON.parse(localStorage.getItem('najd_attendance') || '[]'));
+   const [evals, setEvals] = useState(() => JSON.parse(localStorage.getItem('najd_evals') || '[]'));
+   const [messages, setMessages] = useState(() => JSON.parse(localStorage.getItem('najd_messages') || '[]'));
+@@ -717,6 +718,26 @@ export default function App() {
+   const [players, setPlayers] = useState(() => JSON.parse(localStorage.getItem('najd_players') || '[]'));
+   const [payments, setPayments] = useState(() => JSON.parse(localStorage.getItem('najd_payments') || '[]'));
+   const [theme, setTheme] = useState(() => localStorage.getItem('najd_theme') || "dark");
++  
++  // Coordinate updates between tabs
++  const setLastUpdate = () => localStorage.setItem('najd_last_update', Date.now().toString());
++  const isRecentlyUpdated = () => {
++    const last = parseInt(localStorage.getItem('najd_last_update') || '0');
++    return (Date.now() - last < 45000);
++  };
++
++  // Sync logged-in user if their data (like perms) changes in the main list
++  useEffect(() => {
++    if (user && user.role === 'coach') {
++      const coachData = coaches.find(c => c.userId === user.id || c.id === user.id);
++      if (coachData) {
++        const updatedUser = { ...coachData, role: 'coach' };
++        if (JSON.stringify(updatedUser) !== JSON.stringify(user)) {
++          setUser(updatedUser);
++        }
++      }
++    }
++  }, [coaches, user]);
+ 
+   useEffect(() => {
+     if (user) localStorage.setItem('najd_logged_user', JSON.stringify(user));
+@@ -727,37 +748,53 @@ export default function App() {
+   useEffect(() => {
+     if (API_URL) {
+       const fetchData = async () => {
++        if (isRecentlyUpdated()) return;
++        
+         try {
+           const res = await fetch(`${API_URL}/api/initial-data`);
++          if (!res.ok) throw new Error("Fetch failed");
+           const data = await res.json();
+-          if (data.players) {
+-            // Auto-repair missing logins/data for display
+-            const repaired = data.players.map(p => {
+-              if (p.email && p.password) return p;
+-              const phone = p.phone || "0500000000";
+-              return { 
+-                ...p, 
+-                email: p.email || `najd_${phone}@najd.sa`,
+-                password: p.password || `najd_${phone.slice(-4)}`
+-              };
++          
++          if (isRecentlyUpdated()) return; 
++
++          const merge = (local, remote) => {
++            if (!remote) return local;
++            const res = [...local];
++            const localIds = new Set(local.map(l => l.id));
++            
++            remote.forEach(r => {
++              if (!localIds.has(r.id)) {
++                res.push(r);
++              } else {
++                // If it exists in both, only update from remote if NOT recently updated
++                if (!isRecentlyUpdated()) {
++                  const idx = res.findIndex(l => l.id === r.id);
++                  res[idx] = r;
++                }
++              }
+             });
+-            setPlayers(repaired);
+-          }
+-          if (data.coaches) setCoaches(data.coaches);
+-          if (data.groups) setGroups(data.groups);
+-          if (data.payments) setPayments(data.payments);
+-          if (data.attendance) setAttendance(data.attendance);
+-          if (data.coachesAttendance) setCoachesAttendance(data.coachesAttendance);
+-          if (data.evals) setEvals(data.evals);
+-          if (data.messages) setMessages(data.messages);
+-          if (data.trainings) setTrainings(data.trainings);
++            return res;
++          };
++
++          if (data.coaches)  setCoaches(prev => merge(prev, data.coaches));
++          if (data.payments) setPayments(prev => merge(prev, data.payments));
++          if (data.players)  setPlayers(prev => merge(prev, data.players));
++          if (data.groups)   setGroups(prev => merge(prev, data.groups));
++          if (data.attendance) setAttendance(prev => merge(prev, data.attendance));
++          if (data.coachesAttendance) setCoachesAttendance(prev => merge(prev, data.coachesAttendance));
++          if (data.evals) setEvals(prev => merge(prev, data.evals));
++          if (data.messages) setMessages(prev => merge(prev, data.messages));
++          if (data.trainings) setTrainings(prev => merge(prev, data.trainings));
+         } catch (e) {
+           console.error("API Fetch Error:", e);
+         }
+       };
++      
+       fetchData();
++      const interval = setInterval(fetchData, 10000); // Polling for everyone
++      return () => clearInterval(interval);
+     }
+-  }, []);
++  }, [user?.role]);
+ 
+   useEffect(() => {
+     localStorage.setItem('najd_players', JSON.stringify(players));
+@@ -773,25 +810,80 @@ export default function App() {
+     localStorage.setItem('najd_theme', theme);
+   }, [players, coaches, groups, payments, attendance, coachesAttendance, evals, messages, prices, trainings, theme]);
+ 
+-  const t = THEMES[theme];
++  // Sync state between tabs
++  useEffect(() => {
++    const handleStorage = (e) => {
++      try {
++        if (!e.newValue) return;
++        if (e.key === 'najd_theme') {
++          setTheme(e.newValue);
++          return;
++        }
++        const val = JSON.parse(e.newValue);
++        if (e.key === 'najd_players') setPlayers(val);
++        if (e.key === 'najd_coaches') setCoaches(val);
++        if (e.key === 'najd_groups') setGroups(val);
++        if (e.key === 'najd_payments') setPayments(val);
++        if (e.key === 'najd_attendance') setAttendance(val);
++        if (e.key === 'najd_coachesAttendance') setCoachesAttendance(val);
++        if (e.key === 'najd_evals') setEvals(val);
++        if (e.key === 'najd_messages') setMessages(val);
++        if (e.key === 'najd_prices') setPrices(val);
++        if (e.key === 'najd_trainings') setTrainings(val);
++        if (e.key === 'najd_logged_user') setUser(val);
++      } catch (err) {
++        console.error("Storage sync error:", err);
++      }
++    };
++    window.addEventListener('storage', handleStorage);
++    return () => window.removeEventListener('storage', handleStorage);
++  }, []);
++
++  const t = THEMES[theme] || THEMES.dark;
+ 
+   const shared = { 
+-    groups, setGroups, 
+-    coaches, setCoaches, 
++    groups, 
++    coaches,
++    setCoaches: (val) => {
++      if (typeof val === 'function') {
++        setCoaches(prev => {
++          const next = val(prev);
++          setLastUpdate();
++          if (API_URL) {
++            const changed = next.filter(item => {
++              const old = prev.find(x => x.id === item.id);
++              return !old || JSON.stringify(old) !== JSON.stringify(item);
++            });
++            changed.forEach(item => {
++              fetch(`${API_URL}/api/coaches`, {
++                method: 'POST',
++                headers: { 'Content-Type': 'application/json' },
++                body: JSON.stringify(item)
++              }).catch(console.error);
++            });
++          }
++          return next;
++        });
++      } else {
++        setCoaches(val);
++      }
++    },
+     players, 
+     setPlayers: (val) => {
+       if (typeof val === 'function') {
+         setPlayers(prev => {
+           const next = val(prev);
+-          // Sync new/updated players to cloud if API exists
++          setLastUpdate();
+           if (API_URL) {
+-            const added = next.filter(p => !prev.find(x => x.id === p.id));
+-            const updated = next.filter(p => prev.find(x => x.id === p.id && JSON.stringify(x) !== JSON.stringify(p)));
+-            [...added, ...updated].forEach(p => {
++            const changed = next.filter(item => {
++              const old = prev.find(x => x.id === item.id);
++              return !old || JSON.stringify(old) !== JSON.stringify(item);
++            });
++            changed.forEach(item => {
+               fetch(`${API_URL}/api/players`, {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+-                body: JSON.stringify(p)
++                body: JSON.stringify(item)
+               }).catch(console.error);
+             });
+           }
+@@ -801,20 +893,72 @@ export default function App() {
+         setPlayers(val);
+       }
+     },
++    setGroups: (val) => {
++      if (typeof val === 'function') {
++        setGroups(prev => {
++          const next = val(prev);
++          setLastUpdate();
++          if (API_URL) {
++            const changed = next.filter(item => {
++              const old = prev.find(x => x.id === item.id);
++              return !old || JSON.stringify(old) !== JSON.stringify(item);
++            });
++            changed.forEach(item => {
++              fetch(`${API_URL}/api/groups`, {
++                method: 'POST',
++                headers: { 'Content-Type': 'application/json' },
++                body: JSON.stringify(item)
++              }).catch(console.error);
++            });
++          }
++          return next;
++        });
++      } else {
++        setGroups(val);
++      }
++    },
+     parents: players.map(p => ({ id: p.parentId, name: `ولي أمر ${p.name}`, phone: p.phone, email: p.email })), 
+-    payments, setPayments, 
++    payments,
++    setPayments: (val) => {
++      if (typeof val === 'function') {
++        setPayments(prev => {
++          const next = val(prev);
++          setLastUpdate();
++          if (API_URL) {
++            const changed = next.filter(item => {
++              const old = prev.find(x => x.id === item.id);
++              return !old || JSON.stringify(old) !== JSON.stringify(item);
++            });
++            changed.forEach(item => {
++              fetch(`${API_URL}/api/payments`, {
++                method: 'POST',
++                headers: { 'Content-Type': 'application/json' },
++                body: JSON.stringify(item)
++              }).catch(console.error);
++            });
++          }
++          return next;
++        });
++      } else {
++        setPayments(val);
++      }
++    },
+     attendance, 
+     setAttendance: (val) => {
+       if (typeof val === 'function') {
+         setAttendance(prev => {
+           const next = val(prev);
++          setLastUpdate();
+           if (API_URL) {
+-            const changed = next.filter(a => !prev.find(x => x.id === a.id && JSON.stringify(x) === JSON.stringify(a)));
+-            changed.forEach(a => {
++            const changed = next.filter(item => {
++              const old = prev.find(x => x.id === item.id);
++              return !old || JSON.stringify(old) !== JSON.stringify(item);
++            });
++            changed.forEach(item => {
+               fetch(`${API_URL}/api/attendance`, {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+-                body: JSON.stringify(a)
++                body: JSON.stringify(item)
+               }).catch(console.error);
+             });
+           }
+@@ -824,11 +968,94 @@ export default function App() {
+         setAttendance(val);
+       }
+     },
+-    coachesAttendance, setCoachesAttendance, 
+-    evals, setEvals, 
+-    messages, setMessages, 
++    coachesAttendance, 
++    setCoachesAttendance: (val) => {
++      if (typeof val === 'function') {
++        setCoachesAttendance(prev => {
++          const next = val(prev);
++          setLastUpdate();
++          return next;
++        });
++      } else {
++        setCoachesAttendance(val);
++      }
++    },
++    evals, 
++    setEvals: (val) => {
++      if (typeof val === 'function') {
++        setEvals(prev => {
++          const next = val(prev);
++          setLastUpdate();
++          if (API_URL) {
++            const changed = next.filter(item => {
++              const old = prev.find(x => x.id === item.id);
++              return !old || JSON.stringify(old) !== JSON.stringify(item);
++            });
++            changed.forEach(item => {
++              fetch(`${API_URL}/api/evaluations`, {
++                method: 'POST',
++                headers: { 'Content-Type': 'application/json' },
++                body: JSON.stringify(item)
++              }).catch(console.error);
++            });
++          }
++          return next;
++        });
++      } else {
++        setEvals(val);
++      }
++    },
++    messages, 
++    setMessages: (val) => {
++      if (typeof val === 'function') {
++        setMessages(prev => {
++          const next = val(prev);
++          setLastUpdate();
++          if (API_URL) {
++            const changed = next.filter(item => {
++              const old = prev.find(x => x.id === item.id);
++              return !old || JSON.stringify(old) !== JSON.stringify(item);
++            });
++            changed.forEach(item => {
++              fetch(`${API_URL}/api/messages`, {
++                method: 'POST',
++                headers: { 'Content-Type': 'application/json' },
++                body: JSON.stringify(item)
++              }).catch(console.error);
++            });
++          }
++          return next;
++        });
++      } else {
++        setMessages(val);
++      }
++    },
+     prices, setPrices, 
+-    trainings, setTrainings, 
++    trainings, 
++    setTrainings: (val) => {
++      if (typeof val === 'function') {
++        setTrainings(prev => {
++          const next = val(prev);
++          setLastUpdate();
++          if (API_URL) {
++            const changed = next.filter(item => {
++              const old = prev.find(x => x.id === item.id);
++              return !old || JSON.stringify(old) !== JSON.stringify(item);
++            });
++            changed.forEach(item => {
++              fetch(`${API_URL}/api/trainings`, {
++                method: 'POST',
++                headers: { 'Content-Type': 'application/json' },
++                body: JSON.stringify(item)
++              }).catch(console.error);
++            });
++          }
++          return next;
++        });
++      } else {
++        setTrainings(val);
++      }
++    },
+     t 
+   };
+ 
+@@ -864,9 +1091,9 @@ export default function App() {
+       {!user
+         ? <LoginPage onLogin={setUser} players={players} coaches={coaches} t={t} />
+         : user.role === "admin"
+-          ? <AdminPortal  user={user} onLogout={() => setUser(null)} {...shared} />
++          ? <AdminPortal  user={user} onLogout={() => setUser(null)} {...shared} setLastUpdate={setLastUpdate}/>
+           : user.role === "coach"
+-            ? <CoachPortal  user={user} onLogout={() => setUser(null)} {...shared} />
++            ? <CoachPortal  user={user} onLogout={() => setUser(null)} {...shared} setLastUpdate={setLastUpdate}/>
+             : <ParentPortal user={user} onLogout={() => setUser(null)} {...shared} loginUser={user} />
+       }
+     </div>
+@@ -876,7 +1103,7 @@ export default function App() {
+ /* ══════════════════════════════════════════════════════════
+    ADMIN PORTAL
+ ══════════════════════════════════════════════════════════ */
+-function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, players, setPlayers, parents, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, messages, setMessages, prices, setPrices, trainings, setTrainings, t }) {
++function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, players, setPlayers, parents, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, messages, setMessages, prices, setPrices, trainings, setTrainings, t, setLastUpdate }) {
+   const [tab, setTab] = useState("overview");
+   const tabs = [
+     { id: "overview",     icon: "dashboard",    label: "نظرة عامة"   },
+@@ -898,8 +1125,8 @@ function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, p
+       {tab === "players"   && <AdminPlayers players={players} setPlayers={setPlayers} groups={groups} parents={parents} t={t} />}
+       {tab === "payments"  && <AdminPayments payments={payments} setPayments={setPayments} players={players} coaches={coaches} prices={prices} t={t} />}
+       {tab === "prices"    && <AdminPrices prices={prices} setPrices={setPrices} t={t} />}
+-      {tab === "schedule"  && <AdminTrainings trainings={trainings} setTrainings={setTrainings} groups={groups} coaches={coaches} t={t} />}
+-      {tab === "messages"  && <Messaging messages={messages} setMessages={setMessages} meId="admin" meName="الإدارة" coaches={coaches} parents={parents} t={t} />}
++      {tab === "schedule"  && <AdminTrainings trainings={trainings} setTrainings={setTrainings} groups={groups} coaches={coaches} t={t} setLastUpdate={setLastUpdate}/>}
++      {tab === "messages"  && <Messaging messages={messages} setMessages={setMessages} meId="admin" meName="الإدارة" coaches={coaches} parents={parents} t={t} setLastUpdate={setLastUpdate}/>}
+     </Shell>
+   );
+ }
+@@ -1202,9 +1429,9 @@ function AdminTeams({ groups, setGroups, coaches, players, t }) {
+ function AdminCoaches({ coaches, setCoaches, groups, players, payments, t }) {
+   const [sel, setSel] = useState(null);
+   const [modal, setModal] = useState(null);
++  const [syncing, setSyncing] = useState(null);
+   const empty = { name: "", phone: "", email: "", password: "", specialty: "", exp: 0, cert: "", groupId: "", salary: 0, perms: { ...DEFAULT_PERMS } };
+   const [form, setForm] = useState(empty);
+-
+   const PERM_LABELS = [
+     { key: "attendance", label: "تسجيل الحضور والغياب", icon: "attendance" },
+     { key: "payments",   label: "استلام وتسجيل المدفوعات", icon: "payments" },
+@@ -1212,21 +1439,57 @@ function AdminCoaches({ coaches, setCoaches, groups, players, payments, t }) {
+     { key: "messages",   label: "إرسال واستقبال الرسائل", icon: "messages" },
+   ];
+ 
+-  const save = () => {
++  const save = async () => {
+     if (!form.name.trim()) return;
++    let coachData = { ...form };
+     if (modal === "add") {
+       const id = `c${Date.now()}`;
+       const email = `${form.name.split(" ")[0].toLowerCase()}${Math.floor(Math.random()*1000)}@najd.sa`;
+       const password = `Najd@${Math.floor(Math.random()*9000)+1000}`;
+-      setCoaches(c => [...c, { ...form, id, email, password, joined: new Date().toISOString().split("T")[0] }]);
++      coachData = { ...form, id, email, password, joined: new Date().toISOString().split("T")[0] };
++      setCoaches(c => [...c, coachData]);
++    } else {
++      setCoaches(c => c.map(x => x.id === form.id ? form : x));
+     }
+-    else setCoaches(c => c.map(x => x.id === form.id ? form : x));
++    
++    if (API_URL) {
++      try {
++        await fetch(`${API_URL}/api/coaches`, {
++          method: 'POST',
++          headers: { 'Content-Type': 'application/json' },
++          body: JSON.stringify(coachData)
++        });
++      } catch (e) {
++        console.error("Coach save failed:", e);
++      }
++    }
++    
+     setModal(null);
+     if (sel) setSel(null);
+   };
+ 
+-  const togglePerm = (coachId, permKey) => {
+-    setCoaches(cs => cs.map(c => c.id === coachId ? { ...c, perms: { ...c.perms, [permKey]: !c.perms[permKey] } } : c));
++  const togglePerm = async (coachId, permKey) => {
++    setSyncing(`${coachId}_${permKey}`);
++    const coach = coaches.find(c => c.id === coachId);
++    if (!coach) return;
++    
++    const currentPerms = { ...DEFAULT_PERMS, ...(coach.perms || {}) };
++    const newPerms = { ...currentPerms, [permKey]: !currentPerms[permKey] };
++    
++    setCoaches(prev => prev.map(c => c.id === coachId ? { ...c, perms: newPerms } : c));
++    
++    if (API_URL) {
++      try {
++        await fetch(`${API_URL}/api/coaches`, {
++          method: 'POST',
++          headers: { 'Content-Type': 'application/json' },
++          body: JSON.stringify({ ...coach, perms: newPerms })
++        });
++      } catch (e) {
++        console.error("Save failed:", e);
++      }
++    }
++    setSyncing(null);
+   };
+ 
+   if (sel) {
+@@ -1279,8 +1542,17 @@ function AdminCoaches({ coaches, setCoaches, groups, players, payments, t }) {
+                     </div>
+                     {/* Toggle */}
+                     <button onClick={() => togglePerm(c.id, key)}
+-                      style={{ width: 42, height: 22, borderRadius: 11, border: "none", cursor: "pointer", transition: "all .25s", background: enabled ? "#10B981" : t.border, position: "relative", flexShrink: 0 }}>
++                      disabled={syncing === `${c.id}_${key}`}
++                      style={{ 
++                        width: 42, height: 22, borderRadius: 11, border: "none", 
++                        cursor: syncing ? "not-allowed" : "pointer", 
++                        transition: "all .25s", 
++                        background: enabled ? "#10B981" : t.border, 
++                        position: "relative", flexShrink: 0,
++                        opacity: syncing === `${c.id}_${key}` ? 0.6 : 1
++                      }}>
+                       <div style={{ position: "absolute", top: 3, right: enabled ? 3 : 21, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "right .25s", boxShadow: "0 1px 4px rgba(0,0,0,.2)" }}/>
++                      {syncing === `${c.id}_${key}` && <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 10, height: 10, border: "2px solid #fff", borderTopColor: "transparent", borderRadius: "50%", animation: "spin .8s linear infinite" }} /></div>}
+                     </button>
+                   </div>
+                 );
+@@ -1565,7 +1837,7 @@ function AdminPayments({ payments, setPayments, players, coaches, prices, t }) {
+     });
+   };
+ 
+-  const save = () => {
++  const save = async () => {
+     const player = players.find(p => p.id === form.playerId);
+     const coach  = coaches.find(c => c.id === form.coachId);
+     
+@@ -1578,12 +1850,26 @@ function AdminPayments({ payments, setPayments, players, coaches, prices, t }) {
+       type: type,
+       amount: prices[type] || 0,
+       month: form.month,
+-      date: form.date,
++      date: new Date(form.date).toISOString(),
+       note: form.note
+     }));
+ 
+-    setPayments(ps => [...ps, ...newPayments]);
++    setPayments(ps => [...newPayments, ...ps]);
+     setModal(false);
++
++    if (API_URL) {
++      for (const p of newPayments) {
++        try {
++          await fetch(`${API_URL}/api/payments`, {
++            method: 'POST',
++            headers: { 'Content-Type': 'application/json' },
++            body: JSON.stringify(p)
++          });
++        } catch (e) {
++          console.error("Admin payment sync failed:", e);
++        }
++      }
++    }
+   };
+ 
+   const totalAmount = form.types.reduce((sum, type) => sum + (prices[type] || 0), 0);
+@@ -1619,9 +1905,10 @@ function AdminPayments({ payments, setPayments, players, coaches, prices, t }) {
+           <tbody>
+             {filtered.slice().reverse().map(p => {
+               const pt = PAY_TYPES[p.type];
++              const player = players.find(x => x.id === p.playerId);
+               return (
+                 <tr key={p.id} className={t.name === "dark" ? "rh" : "rhl"} style={{ borderBottom: `1px solid ${t.border}`, transition: "background .15s" }}>
+-                  <td style={{ padding: "11px 14px", fontSize: 12, fontWeight: 600, color: t.text }}>{p.playerName}</td>
++                  <td style={{ padding: "11px 14px", fontSize: 12, fontWeight: 600, color: t.text }}>{player?.name || p.playerName || "—"}</td>
+                   <td style={{ padding: "11px 14px" }}><Chip text={pt ? `${pt.icon} ${pt.label}` : p.type} color={pt?.color || "#7C49A8"}/></td>
+                   <td style={{ padding: "11px 14px", fontSize: 12, color: t.textDim }}>{p.month}</td>
+                   <td style={{ padding: "11px 14px", fontSize: 13, fontWeight: 800, color: pt?.color || "#10B981" }}>{fmtMoney(p.amount)}</td>
+@@ -1709,14 +1996,20 @@ function AdminPrices({ prices, setPrices, t }) {
+ 
+ function AdminTrainings({ trainings, setTrainings, groups, coaches, t }) {
+   const [modal, setModal] = useState(false);
+-  const empty = { groupId: groups[0]?.id, coachId: groups[0]?.coachId, days: [], time: "4:00 م", duration: 90, field: "ملعب A", title: "", trainingFocus: "", note: "" };
++  const empty = { groupId: groups[0]?.id || "", coachId: groups[0]?.coachId || "", days: [], time: "4:00 م", duration: 90, field: "ملعب A", title: "", trainingFocus: "", note: "" };
+   const [form, setForm] = useState(empty);
+-  const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
+-
+-  const save = () => {
+-    setTrainings(ts => [...ts, { ...form, id: `tr${Date.now()}` }]);
++  const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
++
++    const nextTrData = { 
++      ...form, 
++      id: `tr${Date.now()}`,
++      // Ensure IDs are valid strings for DB
++      groupId: String(form.groupId),
++      coachId: String(form.coachId)
++    };
++    setTrainings(ts => [...ts, nextTrData]);
+     setModal(false);
+-  };
++    console.log("Training Created:", nextTrData);
+ 
+   const handleGroupChange = (gid) => {
+     const group = groups.find(g => g.id === gid);
+@@ -1780,12 +2073,9 @@ function AdminTrainings({ trainings, setTrainings, groups, coaches, t }) {
+ 
+           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+             <Input label="التاريخ (اختياري)" value={form.date || ""} onChange={v => setForm(f => ({ ...f, date: v }))} type="date" t={t}/>
+-            <Input label="الوقت" value={form.time} onChange={v => setForm(f => ({ ...f, time: v }))} t={t}/>
+-          </div>
+-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+-            <Input label="الوقت" value={form.time} onChange={v => setForm(f => ({ ...f, time: v }))} t={t}/>
+             <Input label="المدة (دقيقة)" value={form.duration} onChange={v => setForm(f => ({ ...f, duration: +v }))} type="number" t={t}/>
+           </div>
++          <Input label="الوقت" value={form.time} onChange={v => setForm(f => ({ ...f, time: v }))} t={t}/>
+           <Input label="الملعب" value={form.field} onChange={v => setForm(f => ({ ...f, field: v }))} t={t}/>
+           <Input label="تركيز التدريب (المهارة)" value={form.trainingFocus} onChange={v => setForm(f => ({ ...f, trainingFocus: v }))} placeholder="مثال: تمرير قصير" t={t}/>
+           <Input label="ملاحظات" value={form.note} onChange={v => setForm(f => ({ ...f, note: v }))} placeholder="اختياري" t={t}/>
+@@ -1883,9 +2173,18 @@ function AdminAttendance({ groups, players, coaches, attendance, setAttendance,
+   );
+ }
+ 
+-function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, setEvals, messages, setMessages, prices, trainings, setTrainings, t }) {
+-  const coach = coaches.find(c => c.id === user.id) || coaches[0];
+-  const perms = coach?.perms || { ...DEFAULT_PERMS };
++function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, setEvals, messages, setMessages, prices, trainings, setTrainings, t, setLastUpdate }) {
++  const coach = coaches.find(c => c.userId === user.id || c.id === user.id);
++  
++  if (!coach && coaches.length === 0) {
++    return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: t.bg, color: t.textDim }}>جاري تحميل بيانات المدرب...</div>;
++  }
++  
++  let permsObj = coach?.perms || {};
++  if (typeof permsObj === 'string') {
++    try { permsObj = JSON.parse(permsObj); } catch(e) { permsObj = {}; }
++  }
++  const perms = { ...DEFAULT_PERMS, ...permsObj };
+   const group = groups.find(g => g.id === coach.groupId);
+   const myPlayers = players.filter(p => p.groupId === coach.groupId);
+   const unread = messages.filter(m => m.to === user.id && !m.read).length;
+@@ -1899,32 +2198,71 @@ function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPa
+     { id: "payments",   icon: "payments",   label: "المدفوعات",        perm: "payments" },
+     { id: "messages",   icon: "messages",   label: "الرسائل",           perm: "messages", badge: unread || undefined },
+   ];
+-  const tabs = allTabs.filter(tb => tb.perm === null || perms[tb.perm] !== false);
++  let permsObj = coach?.perms || {};
++  if (typeof permsObj === 'string') {
++    try { permsObj = JSON.parse(permsObj); } catch(e) { permsObj = {}; }
++  }
++  const perms = { ...DEFAULT_PERMS, ...permsObj };
++
++  // Explicitly check if a tab is allowed
++  const isTabAllowed = (permKey) => {
++    if (!permKey) return true;
++    return perms[permKey] === true;
++  };
++
++  const tabs = allTabs.filter(tb => isTabAllowed(tb.perm));
+   const [tab, setTab] = useState("home");
+ 
+   useEffect(() => {
+-    if (!tabs.find(tb => tb.id === tab)) setTab("home");
+-  }, [perms]);
++    const isAllowed = tabs.find(tb => tb.id === tab);
++    if (!isAllowed && tab !== "home") {
++      setTab("home");
++    }
++  }, [tabs.length, tab]);
+ 
+   return (
+     <Shell title={coach.name} subtitle={`مدرب ${group?.name || ""}`} color="#06B6D4" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge={group?.name} user={user} t={t}>
++      <div style={{ position: "fixed", top: 10, left: 10, pointerEvents: "none", opacity: 0.2, fontSize: 9 }}>
++        ID: {coach.id} | U: {coach.userId} | P: {JSON.stringify(perms).slice(0,30)}...
++      </div>
+       {tab === "home"       && <CoachHome coach={coach} group={group} groups={groups} myPlayers={myPlayers} attendance={attendance} evals={evals} trainings={trainings} t={t}/>}
+       {tab === "sessions"   && <CoachSessions coach={coach} group={group} groups={groups} trainings={trainings} t={t}/>}
+       {tab === "players"    && <CoachPlayers myPlayers={myPlayers} group={group} evals={evals} t={t}/>}
+-      {tab === "attendance" && perms.attendance !== false && <CoachAttendance coachId={user.id} group={group} myPlayers={myPlayers} attendance={attendance} setAttendance={setAttendance} t={t}/>}
+-      {tab === "eval"       && perms.evals !== false      && <CoachEval coachId={user.id} myPlayers={myPlayers} evals={evals} setEvals={setEvals} t={t}/>}
+-      {tab === "payments"   && perms.payments !== false   && <CoachPayments coachId={user.id} myPlayers={myPlayers} payments={payments} setPayments={setPayments} prices={prices} coaches={coaches} t={t}/>}
+-      {tab === "messages"   && perms.messages !== false   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={coach.name} coaches={coaches} parents={INIT_PARENTS} t={t}/>}
++      {tab === "attendance" && perms.attendance !== false && <CoachAttendance coachId={user.id} group={group} myPlayers={myPlayers} attendance={attendance} setAttendance={setAttendance} t={t} setLastUpdate={setLastUpdate}/>}
++      {tab === "eval"       && perms.evals !== false      && <CoachEval coachId={user.id} myPlayers={myPlayers} evals={evals} setEvals={setEvals} t={t} setLastUpdate={setLastUpdate}/>}
++      {tab === "payments"   && perms.payments !== false   && <CoachPayments coachId={user.id} myPlayers={myPlayers} players={players} payments={payments} setPayments={setPayments} prices={prices} coaches={coaches} t={t} setLastUpdate={setLastUpdate}/>}
++      {tab === "messages"   && perms.messages !== false   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={coach.name} coaches={coaches} parents={INIT_PARENTS} t={t} role="coach" setLastUpdate={setLastUpdate}/>}
+     </Shell>
+   );
+ }
+ 
+ /* ── Coach Home ─────────────────────────────────────── */
+ function CoachHome({ coach, group, groups, myPlayers, attendance, evals, trainings, t }) {
++  if (!coach) return null;
+   const lastAtt = attendance.filter(a => a.coachId === coach.id).slice(-1)[0];
+   const avgScore = myPlayers.length ? Math.round(myPlayers.reduce((a, p) => a + p.score, 0) / myPlayers.length) : 0;
+   const myTrainings = trainings.filter(tr => tr.groupId === coach.groupId);
+-  const nextTr = myTrainings[0];
++  
++  // Improved: Find the closest training session by checking ALL days in tr.days
++  const dayMap = { "الأحد": 0, "الاثنين": 1, "الثلاثاء": 2, "الأربعاء": 3, "الخميس": 4, "الجمعة": 5, "السبت": 6 };
++  const now = new Date();
++  const today = now.getDay(); 
++  
++  let nextTr = null;
++  let minDiff = 8;
++
++  myTrainings.forEach(tr => {
++    tr.days.forEach(d => {
++      const targetDay = dayMap[d];
++      if (targetDay === undefined) return;
++      let diff = targetDay - today;
++      if (diff < 0) diff += 7;
++      if (diff < minDiff) {
++        minDiff = diff;
++        nextTr = tr;
++      }
++    });
++  });
+   
+   return (
+     <div>
+@@ -1997,7 +2335,7 @@ function CoachHome({ coach, group, groups, myPlayers, attendance, evals, trainin
+ 
+ /* ── Coach Sessions ─────────────────────────────────── */
+ function CoachSessions({ coach, group, groups, trainings, t }) {
+-  if (!group) return <div style={{ textAlign: "center", color: t.textFaint, padding: 60 }}>لا توجد مجموعة محددة</div>;
++  if (!coach || !group) return <div style={{ textAlign: "center", color: t.textFaint, padding: 60 }}>لا توجد مجموعة محددة</div>;
+   const myTrainings = trainings.filter(tr => tr.groupId === coach.groupId);
+   
+   return (
+@@ -2232,16 +2570,44 @@ function CoachEval({ coachId, myPlayers, evals, setEvals, t }) {
+ }
+ 
+ /* ── Coach Payments ─────────────────────────────────── */
+-function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coaches, t }) {
++function CoachPayments({ coachId, myPlayers, players, payments, setPayments, prices, coaches, t }) {
+   const [modal, setModal] = useState(false);
+   const [form, setForm]   = useState({ playerId: myPlayers[0]?.id || "", type: "subscription", month: "أبريل 2026", note: "", date: new Date().toISOString().split("T")[0] });
+   const myPays = payments.filter(p => p.coachId === coachId);
+   const total  = myPays.reduce((a, p) => a + p.amount, 0);
+-  const save   = () => {
++  const save = async () => {
+     const player = myPlayers.find(p => p.id === form.playerId);
+     const coach  = coaches.find(c => c.id === coachId);
+-    setPayments(ps => [...ps, { ...form, id: `pay${Date.now()}`, coachId, coachName: coach?.name || "", playerName: player?.name || "", amount: prices[form.type] || 0 }]);
++    const amount = prices[form.type] || 0;
++    
++    const paymentData = {
++      id: `pay${Date.now()}`,
++      playerId: form.playerId,
++      playerName: player?.name || "",
++      coachId,
++      type: form.type,
++      month: form.month,
++      amount,
++      date: new Date(form.date).toISOString(),
++      note: form.note,
++      coachName: coach?.name || ""
++    };
++
++    // Optimistic UI update
++    setPayments(ps => [paymentData, ...ps]);
+     setModal(false);
++
++    if (API_URL) {
++      try {
++        await fetch(`${API_URL}/api/payments`, {
++          method: 'POST',
++          headers: { 'Content-Type': 'application/json' },
++          body: JSON.stringify(paymentData)
++        });
++      } catch (e) {
++        console.error("Payment save failed:", e);
++      }
++    }
+   };
+   return (
+     <div>
+@@ -2261,9 +2627,10 @@ function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coac
+           <tbody>
+             {myPays.map(p => {
+               const pt = PAY_TYPES[p.type];
++              const player = players.find(x => String(x.id) === String(p.playerId));
+               return (
+                 <tr key={p.id} className={t.name === "dark" ? "rh" : "rhl"} style={{ borderBottom: `1px solid ${t.border}`, transition: "background .15s" }}>
+-                  <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: t.text }}>{p.playerName}</td>
++                  <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: t.text }}>{player?.name || p.playerName || "—"}</td>
+                   <td style={{ padding: "10px 14px" }}><Chip text={`${pt.icon} ${pt.label}`} color={pt.color}/></td>
+                   <td style={{ padding: "10px 14px", fontSize: 12, color: t.textDim }}>{p.month}</td>
+                   <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 800, color: pt.color }}>{fmtMoney(p.amount)}</td>
+@@ -2535,10 +2902,10 @@ function ParentPayments({ child, childPays, prices, t }) {
+               const pt = PAY_TYPES[p.type];
+               return (
+                 <tr key={p.id} className={t.name === "dark" ? "rh" : "rhl"} style={{ borderBottom: `1px solid ${t.border}`, transition: "background .15s" }}>
+-                  <td style={{ padding: "10px 14px" }}><Chip text={`${pt.icon} ${pt.label}`} color={pt.color}/></td>
++                  <td style={{ padding: "10px 14px" }}><Chip text={pt ? `${pt.icon} ${pt.label}` : p.type} color={pt?.color || "#7C49A8"}/></td>
+                   <td style={{ padding: "10px 14px", fontSize: 12, color: t.textDim }}>{p.month}</td>
+-                  <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 800, color: pt.color }}>{fmtMoney(p.amount)}</td>
+-                  <td style={{ padding: "10px 14px", fontSize: 11, color: "#A78BFA", fontWeight: 600 }}>{p.coachName}</td>
++                  <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 800, color: pt?.color || "#10B981" }}>{fmtMoney(p.amount)}</td>
++                  <td style={{ padding: "10px 14px", fontSize: 11, color: "#A78BFA", fontWeight: 600 }}>{p.coachName || "الإدارة"}</td>
+                   <td style={{ padding: "10px 14px", fontSize: 11, color: t.textDim }}>{p.date}</td>
+                   <td style={{ padding: "10px 14px", fontSize: 11, color: t.textDim }}>{p.note || "—"}</td>
+                 </tr>
+@@ -2658,13 +3025,16 @@ const QUICK_TEMPLATES = [
+   { label: "تقييم جديد", text: "تم تحديث التقييم الفني للاعب، يرجى الاطلاع عليه من لوحة التحكم." },
+ ];
+ 
+-function Messaging({ messages, setMessages, meId, meName, coaches, parents, t, role, myGroupId, myPlayerIds }) {
++function Messaging({ messages, setMessages, meId, meName, coaches, parents, t, role, myGroupId, myPlayerIds, setLastUpdate }) {
+   const [compose, setCompose] = useState(false);
+   const [form, setForm] = useState({ to: [], text: "", files: [] });
+   const [filterType, setFilterType] = useState("all");
+   
+   const mine = messages.filter(m => m.from === meId || m.to === meId).slice().reverse();
+-  const markRead = id => setMessages(ms => ms.map(m => m.id === id ? { ...m, read: true } : m));
++  const markRead = id => {
++    setMessages(ms => ms.map(m => m.id === id ? { ...m, read: true } : m));
++    setLastUpdate();
++  };
+ 
+   const send = () => {
+     if (!form.to.length || !form.text.trim()) return;
+@@ -2686,7 +3056,7 @@ function Messaging({ messages, setMessages, meId, meName, coaches, parents, t, r
+         toName: targetName,
+         text: form.text,
+         files: form.files,
+-        date: new Date().toISOString().split("T")[0],
++        date: new Date().toISOString(),
+         read: false
+       };
+     });
+@@ -2702,6 +3072,7 @@ function Messaging({ messages, setMessages, meId, meName, coaches, parents, t, r
+     }
+ 
+     setMessages(ms => [...ms, ...newMsgs]);
++    setLastUpdate();
+     setForm({ to: [], text: "", files: [] });
+     setCompose(false);
+     alert("تم إرسال الرسائل بنجاح");

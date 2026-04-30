@@ -677,7 +677,7 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {actions}
-          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.5.2</div>
+          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.6.0</div>
           {syncStatus === "syncing" && <div style={{ fontSize: 10, color: "#D8A435", marginRight: 10 }}>🔄 جاري الحفظ...</div>}
           {syncStatus === "success" && <div style={{ fontSize: 10, color: "#10B981", marginRight: 10 }}>✅ تم الحفظ</div>}
           {syncStatus === "error"   && <div style={{ fontSize: 10, color: "#EF4444", marginRight: 10 }}>⚠️ فشل التزامن</div>}
@@ -732,13 +732,25 @@ export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('najd_theme') || "dark");
   const [globalError, setGlobalError] = useState(null);
 
-  const merge = (local, remote, type) => {
-    if (!remote || isRecentlyUpdated()) return local; // Critical: If recently updated, NEVER merge remote data
+  const [syncStatus, setSyncStatus] = useState("idle");
+
+  // Sync lock helpers
+  const setLastUpdate = () => {
+    localStorage.setItem('najd_last_update', Date.now().toString());
+    setSyncStatus("success");
+    setTimeout(() => setSyncStatus("idle"), 3000);
+  };
+  const isRecentlyUpdated = () => {
+    const last = parseInt(localStorage.getItem('najd_last_update') || '0');
+    return (Date.now() - last < 30000); // 30s lock
+  };
+
+  // Smart merge: remote data never overwrites local changes within the lock window
+  const merge = (local, remote) => {
+    if (!remote || isRecentlyUpdated()) return local;
     let res = [...local];
     const remoteIds = new Set(remote.map(r => String(r.id)));
     const localIds  = new Set(local.map(l => String(l.id)));
-    
-    // 1. Add/Update from Remote
     remote.forEach(r => {
       const rid = String(r.id);
       if (!localIds.has(rid)) {
@@ -748,17 +760,14 @@ export default function App() {
         if (idx !== -1) res[idx] = r;
       }
     });
-
-    // 2. Handle Deletions (Strict check)
+    // Remove items deleted from server (not temporary local IDs)
     res = res.filter(l => {
       const lid = String(l.id);
-      if (lid.match(/^[pgc]\d{10,}/)) return true; // Keep local temporary items
+      if (/^[pgc]\d{10,}/.test(lid)) return true; // keep local temp items
       return remoteIds.has(lid);
     });
     return res;
   };
-
-  const [syncStatus, setSyncStatus] = useState("idle");
 
   // Global debug logger
   useEffect(() => {
@@ -772,16 +781,6 @@ export default function App() {
     return () => window.removeEventListener('error', handleErr);
   }, []);
 
-  // Coordinate updates between tabs with Atomic Sync Lock
-  const setLastUpdate = () => {
-    localStorage.setItem('najd_last_update', Date.now().toString());
-    setSyncStatus("success");
-    setTimeout(() => setSyncStatus("idle"), 3000);
-  };
-  const isRecentlyUpdated = () => {
-    const last = parseInt(localStorage.getItem('najd_last_update') || '0');
-    return (Date.now() - last < 25000); 
-  };
 
   // Atomic API Sync Helper
   const syncWithAPI = async (type, item, isDelete = false) => {
@@ -832,26 +831,22 @@ export default function App() {
           
           if (isRecentlyUpdated()) return; 
 
-          if (data.coaches)  setCoaches(prev => merge(prev, data.coaches, 'coaches'));
-          if (data.payments) setPayments(prev => merge(prev, data.payments, 'payments'));
+          if (data.coaches)  setCoaches(prev => merge(prev, data.coaches));
+          if (data.payments) setPayments(prev => merge(prev, data.payments));
           if (data.players) {
             const repaired = data.players.map(p => {
               if (p.email && p.password) return p;
               const phone = p.phone || "0500000000";
-              return { 
-                ...p, 
-                email: p.email || `najd_${phone}@najd.sa`,
-                password: p.password || `najd_${phone.slice(-4)}`
-              };
+              return { ...p, email: p.email || `player_${phone}@najd.sa`, password: p.password || phone.slice(-4) };
             });
-            setPlayers(prev => merge(prev, repaired, 'players'));
+            setPlayers(prev => merge(prev, repaired));
           }
-          if (data.groups)   setGroups(prev => merge(prev, data.groups, 'groups'));
-          if (data.attendance) setAttendance(prev => merge(prev, data.attendance, 'attendance'));
-          if (data.coachesAttendance) setCoachesAttendance(prev => merge(prev, data.coachesAttendance, 'coachesAttendance'));
-          if (data.evals) setEvals(prev => merge(prev, data.evals, 'evals'));
-          if (data.messages) setMessages(prev => merge(prev, data.messages, 'messages'));
-          if (data.trainings) setTrainings(prev => merge(prev, data.trainings, 'trainings'));
+          if (data.groups)   setGroups(prev => merge(prev, data.groups));
+          if (data.attendance) setAttendance(prev => merge(prev, data.attendance));
+          if (data.coachesAttendance) setCoachesAttendance(prev => merge(prev, data.coachesAttendance));
+          if (data.evals) setEvals(prev => merge(prev, data.evals));
+          if (data.messages) setMessages(prev => merge(prev, data.messages));
+          if (data.trainings) setTrainings(prev => merge(prev, data.trainings));
         } catch (e) {
           console.error("API Fetch Error:", e);
         }
@@ -1106,7 +1101,7 @@ export default function App() {
 
   if (globalError) return (
     <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.5.1)</h2>
+      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.6.0)</h2>
       <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
         <b>Error:</b> {globalError.message}
         <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{globalError.stack}</pre>
@@ -1162,7 +1157,7 @@ export default function App() {
   } catch (err) {
     return (
       <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.5.1)</h2>
+        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.6.0)</h2>
         <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
           <b>Error:</b> {err.message}
           <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{err.stack}</pre>
@@ -1211,7 +1206,7 @@ function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, p
   return (
     <Shell title="لوحة الإدارة" subtitle="نادي نجد الرياض" color="#7C49A8" icon="dashboard" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge="مدير عام" user={user} t={t} syncStatus={syncStatus}
       actions={<Btn variant="secondary" onClick={forceRefresh} style={{ padding: "6px 12px", fontSize: 11 }}>🔄 تحديث البيانات</Btn>}>
-      {tab === "overview"  && <AdminOverview players={players} coaches={coaches} groups={groups} payments={payments} t={t} />}
+      {tab === "overview"  && <AdminOverview players={players} coaches={coaches} groups={groups} payments={payments} attendance={attendance} t={t} />}
       {tab === "teams"     && <AdminTeams groups={groups} setGroups={setGroups} coaches={coaches} players={players} t={t} />}
       {tab === "attendance" && <AdminAttendance groups={groups} players={players} coaches={coaches} attendance={attendance} setAttendance={setAttendance} coachesAttendance={coachesAttendance} setCoachesAttendance={setCoachesAttendance} t={t} />}
       {tab === "coaches"   && <AdminCoaches coaches={coaches} setCoaches={setCoaches} groups={groups} players={players} payments={payments} t={t} />}
@@ -1225,12 +1220,66 @@ function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, p
 }
 
 /* ── Admin Overview ─────────────────────────────────── */
-function AdminOverview({ players, coaches, groups, payments, t }) {
-  const total   = payments.reduce((a, p) => a + p.amount, 0);
-  const month   = payments.filter(p => p.month === "أبريل 2026").reduce((a, p) => a + p.amount, 0);
+function AdminOverview({ players, coaches, groups, payments, attendance, t }) {
+  const total   = payments.reduce((a, p) => a + (p.amount || 0), 0);
+  // Current month label
+  const now = new Date();
+  const monthNames = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+  const curMonth = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+  const month   = payments.filter(p => p.month === curMonth).reduce((a, p) => a + (p.amount || 0), 0);
   const active  = players.filter(p => p.status === "نشط").length;
-  const unpaid  = players.filter(p => !payments.some(pay => pay.playerId === p.id && pay.type === "subscription" && pay.month === "أبريل 2026")).length;
-  const byType  = Object.entries(PAY_TYPES).map(([k, v]) => ({ ...v, k, total: payments.filter(p => p.type === k).reduce((a, p) => a + p.amount, 0), count: payments.filter(p => p.type === k).length }));
+  const unpaid  = players.filter(p => !payments.some(pay => pay.playerId === p.id && pay.type === "subscription" && pay.month === curMonth)).length;
+  const byType  = Object.entries(PAY_TYPES).map(([k, v]) => ({ ...v, k, total: payments.filter(p => p.type === k).reduce((a, p) => a + (p.amount || 0), 0), count: payments.filter(p => p.type === k).length }));
+
+  // Real revenue chart data: last 7 months from payments
+  const revData = (() => {
+    const months = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const label = `${monthNames[d.getMonth()]}`;
+      const income = payments
+        .filter(p => p.month === `${monthNames[d.getMonth()]} ${d.getFullYear()}`)
+        .reduce((a, p) => a + (p.amount || 0), 0);
+      months.push({ month: label, income, expenses: 0 });
+    }
+    return months;
+  })();
+
+  // Real positions distribution from players
+  const posMap = {};
+  players.forEach(p => { if (p.position) posMap[p.position] = (posMap[p.position] || 0) + 1; });
+  const posColors = ["#EF4444","#A855F7","#3B82F6","#10B981","#F59E0B","#06B6D4","#EC4899"];
+  const posData = Object.entries(posMap).map(([name, value], i) => ({ name, value, color: posColors[i % posColors.length] }));
+  if (posData.length === 0) posData.push(...[
+    { name:"مهاجم", value:0, color:"#EF4444" }, { name:"وسط", value:0, color:"#A855F7" },
+    { name:"مدافع", value:0, color:"#3B82F6" }
+  ]);
+
+  // Real weekly attendance trend from attendance records
+  const attTrend = (() => {
+    const weeks = [];
+    for (let i = 5; i >= 0; i--) {
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - (i * 7));
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
+      const label = `أ${6 - i}`;
+      let present = 0, absent = 0, excused = 0;
+      attendance
+        .filter(a => { const d = new Date(a.date); return d >= weekStart && d < weekEnd; })
+        .forEach(a => {
+          if (a.records && typeof a.records === 'object') {
+            Object.values(a.records).forEach(v => {
+              if (v === 'حاضر') present++;
+              else if (v === 'غائب') absent++;
+              else if (v === 'بعذر') excused++;
+            });
+          }
+        });
+      weeks.push({ week: label, 'حاضر': present, 'غائب': absent, 'بعذر': excused });
+    }
+    return weeks;
+  })();
 
   return (
     <div>
@@ -1246,7 +1295,7 @@ function AdminOverview({ players, coaches, groups, payments, t }) {
           <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 4 }}>💰 الإيرادات مقابل المصروفات</div>
           <div style={{ fontSize: 11, color: t.textDim, marginBottom: 14 }}>آخر 7 أشهر</div>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={REV_DATA}>
+            <AreaChart data={revData}>
               <defs>
                 <linearGradient id="gInc" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#7C49A8" stopOpacity={.3}/><stop offset="95%" stopColor="#7C49A8" stopOpacity={0}/></linearGradient>
                 <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#EF4444" stopOpacity={.2}/><stop offset="95%" stopColor="#EF4444" stopOpacity={0}/></linearGradient>
@@ -1265,14 +1314,14 @@ function AdminOverview({ players, coaches, groups, payments, t }) {
           <div style={{ fontSize: 11, color: t.textDim, marginBottom: 10 }}>{players.length} لاعب</div>
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
-              <Pie data={POS_DATA} cx="50%" cy="50%" innerRadius={40} outerRadius={68} paddingAngle={4} dataKey="value" animationDuration={1200}>
-                {POS_DATA.map((e, i) => <Cell key={i} fill={e.color} />)}
+              <Pie data={posData} cx="50%" cy="50%" innerRadius={40} outerRadius={68} paddingAngle={4} dataKey="value" animationDuration={1200}>
+                {posData.map((e, i) => <Cell key={i} fill={e.color} />)}
               </Pie>
               <Tooltip content={<ArabicTooltip />}/>
             </PieChart>
           </ResponsiveContainer>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 10px", marginTop: 6 }}>
-            {POS_DATA.map((d, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: t.textDim }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: d.color }}/>{d.name} <span style={{ color: d.color, fontWeight: 700 }}>{d.value}</span></div>)}
+            {posData.map((d, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: t.textDim }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: d.color }}/>{d.name} <span style={{ color: d.color, fontWeight: 700 }}>{d.value}</span></div>)}
           </div>
         </Card>
       </div>
@@ -1282,7 +1331,7 @@ function AdminOverview({ players, coaches, groups, payments, t }) {
           <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 4 }}>📋 الحضور الأسبوعي</div>
           <div style={{ fontSize: 11, color: t.textDim, marginBottom: 14 }}>آخر 6 أسابيع</div>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={ATT_TREND} barSize={12} barCategoryGap="30%">
+            <BarChart data={attTrend} barSize={12} barCategoryGap="30%">
               <CartesianGrid strokeDasharray="3 3" stroke={t.border} vertical={false}/>
               <XAxis dataKey="week" tick={{ fill: t.textDim, fontSize: 10 }} axisLine={false} tickLine={false}/>
               <YAxis tick={{ fill: t.textDim, fontSize: 10 }} axisLine={false} tickLine={false}/>
@@ -2177,6 +2226,7 @@ function AdminTrainings({ trainings, setTrainings, groups, coaches, t }) {
 /* ── Admin Attendance (NEW) ─────────────────────────── */
 function AdminAttendance({ groups, players, coaches, attendance, setAttendance, coachesAttendance, setCoachesAttendance, t }) {
   const [subTab, setSubTab] = useState("players");
+  const [viewMode, setViewMode] = useState("record"); // "record" | "history"
   const [selGroup, setSelGroup] = useState(groups[0]?.id || "");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [records, setRecords] = useState({});
@@ -2193,63 +2243,161 @@ function AdminAttendance({ groups, players, coaches, attendance, setAttendance, 
 
   const save = () => {
     if (subTab === "players") {
-      const newAtt = { id: `att${Date.now()}`, date, groupId: selGroup, records };
+      const id = `att_${selGroup}_${date}`;
+      const newAtt = { id, date, groupId: selGroup, records };
       setAttendance(prev => {
         const filtered = prev.filter(a => !(a.date === date && a.groupId === selGroup));
         return [...filtered, newAtt];
       });
     } else {
-      const newAtt = { id: `ca${Date.now()}`, date, records };
+      const id = `ca_${date}`;
+      const newAtt = { id, date, groupId: "coaches", coachId: null, records };
       setCoachesAttendance(prev => {
-        const filtered = prev.filter(a => a.date === date);
+        const filtered = prev.filter(a => a.date !== date);
         return [...filtered, newAtt];
       });
     }
-    alert("تم حفظ التحضير بنجاح");
+    alert("✅ تم حفظ التحضير بنجاح");
   };
 
   const list = subTab === "players" ? players.filter(p => p.groupId === selGroup) : coaches;
 
+  // ── Attendance History calculations ──────────────────────────────────
+  const playerHistory = (() => {
+    return players.map(p => {
+      const sessions = attendance.filter(a => a.groupId === p.groupId && a.records);
+      let present = 0, absent = 0, excused = 0;
+      sessions.forEach(a => {
+        const status = typeof a.records === 'object' ? a.records[p.id] : null;
+        if (status === 'حاضر') present++;
+        else if (status === 'غائب') absent++;
+        else if (status === 'بعذر') excused++;
+      });
+      const total = present + absent + excused;
+      const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+      const group = groups.find(g => g.id === p.groupId);
+      return { ...p, present, absent, excused, total, pct, groupName: group?.name || "—" };
+    }).sort((a, b) => b.pct - a.pct);
+  })();
+
+  const coachHistory = (() => {
+    return coaches.map(c => {
+      const allSessions = [...coachesAttendance];
+      let present = 0, absent = 0, excused = 0;
+      const sessionLog = [];
+      allSessions.forEach(a => {
+        const status = typeof a.records === 'object' ? a.records[c.id] : null;
+        if (status === 'حاضر') present++;
+        else if (status === 'غائب') absent++;
+        else if (status === 'بعذر') excused++;
+        if (status) sessionLog.push({ date: a.date, status });
+      });
+      const total = present + absent + excused;
+      const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+      const group = groups.find(g => g.id === c.groupId);
+      return { ...c, present, absent, excused, total, pct, groupName: group?.name || "—", sessionLog: sessionLog.sort((a,b) => b.date.localeCompare(a.date)) };
+    }).sort((a, b) => b.pct - a.pct);
+  })();
+
   return (
     <div className="s1">
-      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-        <button onClick={() => setSubTab("players")} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "none", background: subTab === "players" ? "linear-gradient(135deg,#7C49A8,#5A2D82)" : t.bg2, color: subTab === "players" ? "#fff" : t.textDim, fontWeight: 700, cursor: "pointer", transition: "all .3s" }}>تحضير اللاعبين</button>
-        <button onClick={() => setSubTab("coaches")} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "none", background: subTab === "coaches" ? "linear-gradient(135deg,#D8A435,#A87820)" : t.bg2, color: subTab === "coaches" ? "#fff" : t.textDim, fontWeight: 700, cursor: "pointer", transition: "all .3s" }}>تحضير المدربين</button>
+      {/* Sub-tab: Players vs Coaches */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <button onClick={() => { setSubTab("players"); setViewMode("record"); }} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "none", background: subTab === "players" ? "linear-gradient(135deg,#7C49A8,#5A2D82)" : t.bg2, color: subTab === "players" ? "#fff" : t.textDim, fontWeight: 700, cursor: "pointer", transition: "all .3s" }}>⚽ تحضير اللاعبين</button>
+        <button onClick={() => { setSubTab("coaches"); setViewMode("record"); }} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "none", background: subTab === "coaches" ? "linear-gradient(135deg,#D8A435,#A87820)" : t.bg2, color: subTab === "coaches" ? "#fff" : t.textDim, fontWeight: 700, cursor: "pointer", transition: "all .3s" }}>🧑‍💼 تحضير المدربين</button>
       </div>
 
-      <Card t={t} style={{ padding: 22 }}>
-        <div style={{ display: "flex", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
-          <div style={{ flex: 1, minWidth: 150 }}><Input label="التاريخ" type="date" value={date} onChange={setDate} t={t}/></div>
-          {subTab === "players" && (
-            <div style={{ flex: 1, minWidth: 150 }}><Input label="المجموعة" value={selGroup} onChange={setSelGroup} options={groups.map(g => ({ v: g.id, l: g.name }))} t={t}/></div>
-          )}
-        </div>
+      {/* View mode: Record vs History */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <button onClick={() => setViewMode("record")} style={{ padding: "7px 16px", borderRadius: 9, border: `1px solid ${viewMode === "record" ? "#7C49A8" : t.border}`, background: viewMode === "record" ? "rgba(124,73,168,.12)" : "transparent", color: viewMode === "record" ? "#C4B5FD" : t.textDim, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📝 تسجيل</button>
+        <button onClick={() => setViewMode("history")} style={{ padding: "7px 16px", borderRadius: 9, border: `1px solid ${viewMode === "history" ? "#10B981" : t.border}`, background: viewMode === "history" ? "rgba(16,185,129,.1)" : "transparent", color: viewMode === "history" ? "#10B981" : t.textDim, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📊 السجل التاريخي</button>
+      </div>
 
-        <div style={{ border: `1px solid ${t.border}`, borderRadius: 12, overflow: "hidden" }}>
-          {list.map((item, idx) => (
-            <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: idx < list.length - 1 ? `1px solid ${t.border}` : "none", background: idx % 2 === 0 ? "transparent" : `${t.bg}44` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <Avatar name={item.name} size={36} color={subTab === "players" ? "#7C49A8" : "#D8A435"}/>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{item.name}</div>
-                  <div style={{ fontSize: 11, color: t.textDim }}>{subTab === "players" ? item.position : item.specialty}</div>
+      {viewMode === "record" ? (
+        <Card t={t} style={{ padding: 22 }}>
+          <div style={{ display: "flex", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 150 }}><Input label="التاريخ" type="date" value={date} onChange={setDate} t={t}/></div>
+            {subTab === "players" && (
+              <div style={{ flex: 1, minWidth: 150 }}><Input label="المجموعة" value={selGroup} onChange={setSelGroup} options={groups.map(g => ({ v: g.id, l: g.name }))} t={t}/></div>
+            )}
+          </div>
+          <div style={{ border: `1px solid ${t.border}`, borderRadius: 12, overflow: "hidden" }}>
+            {list.map((item, idx) => (
+              <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: idx < list.length - 1 ? `1px solid ${t.border}` : "none", background: idx % 2 === 0 ? "transparent" : `${t.bg}44` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Avatar name={item.name} size={36} color={subTab === "players" ? "#7C49A8" : "#D8A435"}/>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{item.name}</div>
+                    <div style={{ fontSize: 11, color: t.textDim }}>{subTab === "players" ? item.position : item.specialty}</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {Object.entries(ATT_C).map(([status, color]) => (
+                    <button key={status} onClick={() => setRecords(r => ({ ...r, [item.id]: status }))}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid", borderColor: records[item.id] === status ? color : t.border, background: records[item.id] === status ? `${color}18` : "transparent", color: records[item.id] === status ? color : t.textFaint, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all .2s" }}>
+                      {status}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                {Object.entries(ATT_C).map(([status, color]) => (
-                  <button key={status} onClick={() => setRecords(r => ({ ...r, [item.id]: status }))}
-                    style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid", borderColor: records[item.id] === status ? color : t.border, background: records[item.id] === status ? `${color}18` : "transparent", color: records[item.id] === status ? color : t.textFaint, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all .2s" }}>
-                    {status}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-          {list.length === 0 && <div style={{ padding: 40, textAlign: "center", color: t.textFaint }}>لا يوجد بيانات</div>}
-        </div>
-
-        <Btn onClick={save} style={{ width: "100%", marginTop: 20 }}>💾 حفظ التحضير</Btn>
-      </Card>
+            ))}
+            {list.length === 0 && <div style={{ padding: 40, textAlign: "center", color: t.textFaint }}>لا يوجد بيانات</div>}
+          </div>
+          <Btn onClick={save} style={{ width: "100%", marginTop: 20 }}>💾 حفظ التحضير</Btn>
+        </Card>
+      ) : (
+        /* ── HISTORY VIEW ───────────────────────────── */
+        <Card t={t} style={{ padding: 22 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: t.text, marginBottom: 16 }}>
+            {subTab === "players" ? "📊 سجل حضور اللاعبين" : "📊 سجل حضور المدربين"}
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: t.bg, borderBottom: `1px solid ${t.border}` }}>
+                <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 11, color: t.textDim, fontWeight: 700 }}>الاسم</th>
+                {subTab === "players" && <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 11, color: t.textDim, fontWeight: 700 }}>المجموعة</th>}
+                {subTab === "coaches" && <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 11, color: t.textDim, fontWeight: 700 }}>الفريق</th>}
+                <th style={{ padding: "10px 12px", textAlign: "center", fontSize: 11, color: "#10B981", fontWeight: 700 }}>✅ حاضر</th>
+                <th style={{ padding: "10px 12px", textAlign: "center", fontSize: 11, color: "#EF4444", fontWeight: 700 }}>❌ غائب</th>
+                <th style={{ padding: "10px 12px", textAlign: "center", fontSize: 11, color: "#F59E0B", fontWeight: 700 }}>🕐 بعذر</th>
+                <th style={{ padding: "10px 12px", textAlign: "center", fontSize: 11, color: t.textDim, fontWeight: 700 }}>الكل</th>
+                <th style={{ padding: "10px 12px", textAlign: "center", fontSize: 11, color: "#7C49A8", fontWeight: 700 }}>نسبة الحضور</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(subTab === "players" ? playerHistory : coachHistory).map((item, i) => (
+                <tr key={item.id} style={{ borderBottom: `1px solid ${t.border}`, transition: "background .15s" }}>
+                  <td style={{ padding: "11px 12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                      <Avatar name={item.name} size={30} color={subTab === "players" ? "#7C49A8" : "#D8A435"}/>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{item.name}</div>
+                        <div style={{ fontSize: 10, color: t.textDim }}>{subTab === "players" ? item.position : item.specialty}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ padding: "11px 12px", fontSize: 12, color: t.textDim }}>{item.groupName}</td>
+                  <td style={{ padding: "11px 12px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "#10B981" }}>{item.present}</td>
+                  <td style={{ padding: "11px 12px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "#EF4444" }}>{item.absent}</td>
+                  <td style={{ padding: "11px 12px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "#F59E0B" }}>{item.excused}</td>
+                  <td style={{ padding: "11px 12px", textAlign: "center", fontSize: 12, color: t.textDim }}>{item.total}</td>
+                  <td style={{ padding: "11px 12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ flex: 1, height: 6, background: t.border, borderRadius: 3 }}>
+                        <div style={{ height: "100%", borderRadius: 3, background: item.pct >= 80 ? "#10B981" : item.pct >= 60 ? "#F59E0B" : "#EF4444", width: `${item.pct}%`, transition: "width 1s" }}/>
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: item.pct >= 80 ? "#10B981" : item.pct >= 60 ? "#F59E0B" : "#EF4444", minWidth: 36 }}>{item.pct}%</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {(subTab === "players" ? playerHistory : coachHistory).length === 0 && (
+                <tr><td colSpan={8} style={{ padding: 40, textAlign: "center", color: t.textFaint }}>لا يوجد سجل حضور مسجل حتى الآن</td></tr>
+              )}
+            </tbody>
+          </table>
+        </Card>
+      )}
     </div>
   );
 }
