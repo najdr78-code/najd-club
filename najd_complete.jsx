@@ -479,6 +479,7 @@ function Avatar({ name, size = 36, color = "#A855F7" }) {
 }
 
 function Footer({ t }) {
+  // v0.6.5 - Deployment Fix
   const theme = t || THEMES.dark;
   return (
     <div style={{ textAlign: "center", padding: "20px", marginTop: "auto", borderTop: `1px solid ${theme.border}`, fontSize: 11, color: theme.textDim, opacity: 0.8 }}>
