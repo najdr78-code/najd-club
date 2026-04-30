@@ -27,7 +27,7 @@ model Coach {
   exp         Int?
   cert        String?
   salary      Float?
-  groupId     String?      // REMOVED @unique - a coach can only have one group but constraint was causing upsert failures
+  groupId     String?      @unique  // Required for Prisma one-to-one relation - uniqueness enforced by DB
   perms       Json?
   attendance  Attendance[]
   group       Group?       @relation("GroupCoach", fields: [groupId], references: [id])
@@ -75,7 +75,7 @@ model Group {
   id         String       @id @default(cuid())
   name       String
   color      String       @default("#06B6D4")
-  coachId    String?      // REMOVED @unique - the app logic handles this
+  coachId    String?      @unique  // One-to-one: one coach per group, enforced at DB level
   attendance Attendance[]
   coach      Coach?       @relation("GroupCoach")
   players    Player[]

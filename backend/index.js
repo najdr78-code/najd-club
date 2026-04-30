@@ -92,36 +92,33 @@ app.get('/api/initial-data', async (req, res) => {
 });
 
 // ──────────────────────────────────────────────────────────
-// GROUPS — CRITICAL FIX: saves coachId properly
+// GROUPS — Properly handles @unique coachId constraint
 // ──────────────────────────────────────────────────────────
 app.post('/api/groups', async (req, res) => {
   const g = req.body;
   if (!g || !g.id) return res.status(400).json({ error: 'id required' });
   try {
-    // If coachId is being set, first unlink that coach from any OTHER group
     if (g.coachId) {
-      await prisma.group.updateMany({
-        where: { coachId: g.coachId, NOT: { id: g.id } },
-        data: { coachId: null }
-      });
-      // Also update the coach's groupId
-      await prisma.coach.updateMany({
-        where: { id: g.coachId },
-        data: { groupId: g.id }
-      });
-      // Unlink coaches previously assigned to THIS group
+      // Step 1: Clear the target coach's current group assignment (avoid unique conflict)
       await prisma.coach.updateMany({
         where: { groupId: g.id, NOT: { id: g.coachId } },
         data: { groupId: null }
       });
+      // Step 2: Also clear any OTHER group that has this coachId
+      await prisma.group.updateMany({
+        where: { coachId: g.coachId, NOT: { id: g.id } },
+        data: { coachId: null }
+      });
+      // Step 3: Update the new coach to point to this group
+      await prisma.coach.updateMany({
+        where: { id: g.coachId },
+        data: { groupId: g.id }
+      });
     } else {
-      // Clearing coach from group — also clear groupId from the coach
+      // Clearing coach from group — also clear groupId from the current coach
       const existing = await prisma.group.findUnique({ where: { id: g.id } });
       if (existing?.coachId) {
-        await prisma.coach.updateMany({
-          where: { id: existing.coachId },
-          data: { groupId: null }
-        });
+        await prisma.coach.updateMany({ where: { id: existing.coachId }, data: { groupId: null } });
       }
     }
 
@@ -160,12 +157,17 @@ app.post('/api/coaches', async (req, res) => {
       create: { email: c.email, password: c.password, name: c.name, role: 'COACH', phone: c.phone || null }
     });
 
-    // If groupId is provided, clear it from other coaches first
+    // If groupId is being set, clear it from other coaches FIRST (avoid unique violation)
     if (c.groupId) {
       await prisma.coach.updateMany({
         where: { groupId: c.groupId, NOT: { userId: user.id } },
         data: { groupId: null }
       });
+      // Also clear any other group's coachId pointing to this coach
+      const existingCoach = await prisma.coach.findUnique({ where: { userId: user.id } });
+      if (existingCoach && existingCoach.groupId && existingCoach.groupId !== c.groupId) {
+        await prisma.group.updateMany({ where: { id: existingCoach.groupId }, data: { coachId: null } });
+      }
     }
 
     const coach = await prisma.coach.upsert({
@@ -189,12 +191,9 @@ app.post('/api/coaches', async (req, res) => {
       }
     });
 
-    // Sync group's coachId if groupId is set
+    // Sync group's coachId
     if (c.groupId) {
-      await prisma.group.updateMany({
-        where: { id: c.groupId },
-        data: { coachId: coach.id }
-      });
+      await prisma.group.updateMany({ where: { id: c.groupId }, data: { coachId: coach.id } });
     }
 
     res.json({ ...coach, id: coach.id, userId: user.id, name: user.name, email: user.email });
