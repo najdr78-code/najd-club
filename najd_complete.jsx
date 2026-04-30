@@ -1834,19 +1834,35 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals = [], coache
               );
             })()}
 
-            <SkillBar label="السرعة"         val={p.speed}     color="#06B6D4" t={t}/>
-            <SkillBar label="التحمل"         val={p.stamina}   color="#10B981" t={t}/>
-            <SkillBar label="التقنية"        val={p.technique} color="#7C49A8" t={t}/>
-            <SkillBar label="العمل الجماعي" val={p.teamwork}  color="#F59E0B" t={t}/>
-            <div style={{ marginTop: 18 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
-                <span style={{ color: t.textDim }}>التقييم الكلي</span>
-                <span style={{ fontWeight: 800, color: p.score > 80 ? "#10B981" : p.score > 60 ? "#F59E0B" : "#EF4444" }}>{p.score}/100</span>
-              </div>
-              <div style={{ height: 8, background: t.border, borderRadius: 4 }}>
-                <div style={{ height: "100%", borderRadius: 4, background: `linear-gradient(90deg,${p.score > 80 ? "#10B981" : p.score > 60 ? "#F59E0B" : "#EF4444"},transparent)`, width: `${p.score}%` }}/>
-              </div>
-            </div>
+            {(() => {
+              const hasEval = (evals||[]).some(e => String(e.playerId) === String(p.id));
+              const latestEval = (evals||[]).filter(e => String(e.playerId) === String(p.id)).slice(-1)[0];
+              const evalScore = latestEval ? Math.round((latestEval.speed + latestEval.technique + latestEval.teamwork) / 3) : null;
+              if (!hasEval) return (
+                <div style={{ textAlign:'center', padding:'30px 0', color: t.textFaint }}>
+                  <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: t.textDim }}>لم يتم التقييم بعد</div>
+                  <div style={{ fontSize: 11, marginTop: 6 }}>سيظهر التقييم هنا بعد أن يسجّل المدرب أول تقييم للاعب.</div>
+                </div>
+              );
+              return (
+                <>
+                  <SkillBar label="السرعة"         val={latestEval.speed}     color="#06B6D4" t={t}/>
+                  <SkillBar label="التحمل"         val={latestEval.stamina ?? p.stamina}   color="#10B981" t={t}/>
+                  <SkillBar label="التقنية"        val={latestEval.technique} color="#7C49A8" t={t}/>
+                  <SkillBar label="العمل الجماعي" val={latestEval.teamwork}  color="#F59E0B" t={t}/>
+                  <div style={{ marginTop: 18 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+                      <span style={{ color: t.textDim }}>التقييم الكلي</span>
+                      <span style={{ fontWeight: 800, color: evalScore > 80 ? "#10B981" : evalScore > 60 ? "#F59E0B" : "#EF4444" }}>{evalScore}/100</span>
+                    </div>
+                    <div style={{ height: 8, background: t.border, borderRadius: 4 }}>
+                      <div style={{ height: "100%", borderRadius: 4, background: `linear-gradient(90deg,${evalScore > 80 ? "#10B981" : evalScore > 60 ? "#F59E0B" : "#EF4444"},transparent)`, width: `${evalScore}%` }}/>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </Card>
         </div>
         {modal && (
@@ -2606,10 +2622,19 @@ function CoachPlayers({ myPlayers, group, evals, t }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <Card t={t} style={{ padding: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 14 }}>📊 المهارات</div>
-              <SkillBar label="السرعة"        val={p.speed}     color="#06B6D4" t={t}/>
-              <SkillBar label="التحمل"        val={p.stamina}   color="#10B981" t={t}/>
-              <SkillBar label="التقنية"       val={p.technique} color="#7C49A8" t={t}/>
-              <SkillBar label="العمل الجماعي" val={p.teamwork}  color="#F59E0B" t={t}/>
+              {lastEval ? (
+                <>
+                  <SkillBar label="السرعة"        val={lastEval.speed}     color="#06B6D4" t={t}/>
+                  <SkillBar label="التحمل"        val={lastEval.stamina ?? p.stamina}   color="#10B981" t={t}/>
+                  <SkillBar label="التقنية"       val={lastEval.technique} color="#7C49A8" t={t}/>
+                  <SkillBar label="العمل الجماعي" val={lastEval.teamwork}  color="#F59E0B" t={t}/>
+                </>
+              ) : (
+                <div style={{ textAlign:'center', padding:'20px 0', color: t.textFaint }}>
+                  <div style={{ fontSize:28, marginBottom:8 }}>📋</div>
+                  <div style={{ fontSize:12 }}>لم يتم التقييم بعد</div>
+                </div>
+              )}
             </Card>
             <Card t={t} style={{ padding: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 16 }}>📝 حالة التقييم</div>
@@ -2940,10 +2965,20 @@ function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, 
               <Chip text={child.status} color={child.status === "نشط" ? "#10B981" : "#EF4444"}/>
             </div>
           </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 36, fontWeight: 900, color: "#10B981" }}>{child.score}</div>
-            <div style={{ fontSize: 11, color: t.textDim }}>التقييم الكلي</div>
-          </div>
+          {(() => {
+            const latestEval = childEvals.slice(-1)[0];
+            const evalScore = latestEval ? Math.round((latestEval.speed + latestEval.technique + latestEval.teamwork) / 3) : null;
+            return evalScore !== null ? (
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 36, fontWeight: 900, color: "#10B981" }}>{evalScore}</div>
+                <div style={{ fontSize: 11, color: t.textDim }}>التقييم الكلي</div>
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", background: "rgba(16,185,129,.07)", borderRadius: 12, padding: "10px 16px" }}>
+                <div style={{ fontSize: 11, color: t.textFaint }}>لم يُقيَّم بعد</div>
+              </div>
+            );
+          })()}
         </div>
       </Card>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 18 }} className="s2">
@@ -3001,10 +3036,24 @@ function ParentScores({ child, childEvals, childCoach, t }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }} className="s1">
         <Card t={t} style={{ padding: 22 }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 16 }}>📊 المهارات الحالية</div>
-          <SkillBar label="السرعة"         val={child.speed}     color="#06B6D4" t={t}/>
-          <SkillBar label="التحمل"         val={child.stamina}   color="#10B981" t={t}/>
-          <SkillBar label="التقنية"        val={child.technique} color="#7C49A8" t={t}/>
-          <SkillBar label="العمل الجماعي" val={child.teamwork}  color="#F59E0B" t={t}/>
+          {(() => {
+            const latestEval = childEvals.slice(-1)[0];
+            if (!latestEval) return (
+              <div style={{ textAlign:'center', padding:'30px 0', color: t.textFaint }}>
+                <div style={{ fontSize:32, marginBottom:10 }}>📋</div>
+                <div style={{ fontSize:13, fontWeight:700, color: t.textDim }}>لم يتم التقييم بعد</div>
+                <div style={{ fontSize:11, marginTop:6 }}>سيظهر التقييم بعد أول جلسة تقييم مع المدرب.</div>
+              </div>
+            );
+            return (
+              <>
+                <SkillBar label="السرعة"         val={latestEval.speed}     color="#06B6D4" t={t}/>
+                <SkillBar label="التحمل"         val={latestEval.stamina ?? child.stamina}   color="#10B981" t={t}/>
+                <SkillBar label="التقنية"        val={latestEval.technique} color="#7C49A8" t={t}/>
+                <SkillBar label="العمل الجماعي" val={latestEval.teamwork}  color="#F59E0B" t={t}/>
+              </>
+            );
+          })()}
         </Card>
         <Card t={t} style={{ padding: 22 }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 14 }}>⚽ إحصائيات الموسم</div>
@@ -3222,244 +3271,256 @@ function ParentSchedule({ childGroup, childCoach, trainings, t }) {
 /* ══════════════════════════════════════════════════════════
    MESSAGING (shared)
 ══════════════════════════════════════════════════════════ */
-const QUICK_TEMPLATES = [
-  { label: "ترحيب", text: "أهلاً بك في نادي نجد الرياضي. يسعدنا انضمامكم إلينا." },
-  { label: "تذكير سداد", text: "نحيطكم علماً بضرورة سداد الرسوم الشهرية لضمان استمرارية التدريب." },
-  { label: "تأجيل تدريب", text: "نعتذر عن إلغاء تدريب اليوم لظروف طارئة، وسيتم التعويض في وقت لاحق." },
-  { label: "تقييم جديد", text: "تم تحديث التقييم الفني للاعب، يرجى الاطلاع عليه من لوحة التحكم." },
-];
+const ROLE_TEMPLATES = {
+  admin: [
+    { label: "ترحيب رسمي",    text: "أهلاً بك في نادي نجد الرياضي. يسعدنا انضمامكم لعائلة النادي ونتمنى لكم تجربة رياضية متميزة." },
+    { label: "تذكير اشتراك",  text: "نحيطكم علماً بأن موعد سداد رسوم الاشتراك الشهري قد حلّ. يرجى المبادرة بالسداد لضمان استمرارية التدريب." },
+    { label: "إشعار تقييم",   text: "تم إجراء التقييم الفني الدوري للاعبين. يمكنكم الاطلاع على النتائج من لوحة التحكم الخاصة بكم." },
+    { label: "إلغاء تدريب",   text: "نعتذر عن تأجيل جلسة التدريب المقررة لأسباب طارئة. سيتم إبلاغكم بالموعد البديل قريباً." },
+    { label: "دعوة اجتماع",   text: "يسعدنا دعوتكم لحضور اجتماع أولياء الأمور المقرر خلال الأسبوع القادم. تفاصيل الموعد ستُرسل لاحقاً." },
+    { label: "تهنئة إنجاز",   text: "ألف مبروك على الإنجاز المتميز! نادي نجد يفخر بكم ويتمنى لكم المزيد من التقدم والنجاح." },
+  ],
+  coach: [
+    { label: "تقرير أداء",     text: "السلام عليكم، أودّ إطلاعكم على أداء نجلكم خلال الجلسات الأخيرة. هناك تحسن ملحوظ في مستوى التقنية والانتظام." },
+    { label: "تذكير حضور",    text: "أودّ التنبيه بأن نجلكم يسجّل غياباً متكرراً عن جلسات التدريب. يرجى التواصل معي لمعالجة الأمر." },
+    { label: "طلب متابعة",    text: "أرجو متابعة التمارين المنزلية التي وزّعتها في الجلسة الأخيرة، فهي أساسية لتطوير أداء اللاعب." },
+    { label: "دعوة لاجتماع",  text: "أودّ تحديد موعد لمناقشة تقدم نجلكم ووضع خطة تطوير مناسبة. يرجى التواصل معي لتحديد الوقت المناسب." },
+    { label: "تقرير للإدارة",  text: "تقرير دوري: جميع جلسات هذا الأسبوع سارت بشكل جيد. الحضور منتظم ومستوى التطور إيجابي." },
+    { label: "تعديل جدول",    text: "تنبيه: سيطرأ تعديل على جدول التدريب هذا الأسبوع. يرجى متابعة التطبيق للاطلاع على التفاصيل." },
+  ],
+  parent: [
+    { label: "استفسار أداء",   text: "السلام عليكم، أودّ الاستفسار عن مستوى أداء نجلي في جلسات التدريب الأخيرة وأي توصيات لدعمه في المنزل." },
+    { label: "إشعار غياب",    text: "أودّ إعلامكم بأن نجلي لن يتمكن من حضور جلسة التدريب القادمة بسبب ظرف طارئ. نعتذر عن الإزعاج." },
+    { label: "شكر وتقدير",    text: "جزاكم الله خيراً على جهودكم المتميزة مع أبنائنا. نلاحظ تطوراً ملحوظاً في أداء نجلنا." },
+    { label: "سؤال عن الرسوم", text: "أودّ الاستفسار عن تفاصيل الرسوم الشهرية وطريقة السداد المتاحة." },
+    { label: "طلب تقرير",     text: "هل يمكن الحصول على تقرير تفصيلي عن مستوى نجلي ونقاط القوة والضعف لديه؟" },
+  ],
+};
 
 function Messaging({ messages, setMessages, meId, meName, coaches, parents, players, t, role, myGroupId, myPlayerIds, myCoachIds }) {
   const [compose, setCompose] = useState(false);
   const [form, setForm] = useState({ to: [], text: "", files: [] });
   const [filterType, setFilterType] = useState("all");
-  
-  const mine = messages.filter(m => m.from === meId || m.to === meId).slice().reverse();
+  const [chatWith, setChatWith] = useState(null);
+  const [replyText, setReplyText] = useState("");
+  const chatEndRef = useRef(null);
+  const templates = ROLE_TEMPLATES[role] || ROLE_TEMPLATES.admin;
+
+  useEffect(() => {
+    if (chatWith && chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+  }, [chatWith, messages.length]);
+
+  const mine = messages.filter(m => m.from === meId || m.to === meId);
   const markRead = id => setMessages(ms => ms.map(m => m.id === id ? { ...m, read: true } : m));
+
+  const buildMsg = (targetId, txt) => {
+    let targetName = "";
+    if (String(targetId) === "admin") targetName = "الإدارة";
+    else {
+      const c = (coaches||[]).find(x => String(x.id) === String(targetId));
+      const p = (parents||[]).find(x => String(x.id) === String(targetId));
+      targetName = c?.name || p?.name || "مستخدم";
+    }
+    return { id: `msg${Date.now()}-${Math.random().toString(36).slice(2)}`, from: meId, fromName: meName, to: targetId, toName: targetName, text: txt, files: [], date: new Date().toISOString().split("T")[0], read: false };
+  };
+
+  const apiSend = msg => {
+    if (!API_URL) return;
+    fetch(`${API_URL}/api/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(msg) }).catch(console.error);
+  };
 
   const send = () => {
     if (!form.to.length || !form.text.trim()) return;
-    
-    const newMsgs = form.to.map(targetId => {
-      let targetName = "";
-      if (String(targetId) === "admin") targetName = "الإدارة";
-      else {
-        const c = (coaches || []).find(x => String(x.id) === String(targetId));
-        const p = (parents || []).find(x => String(x.id) === String(targetId));
-        targetName = c?.name || p?.name || "مستخدم";
-      }
-
-      return {
-        id: `msg${Date.now()}-${targetId}`,
-        from: meId,
-        fromName: meName,
-        to: targetId,
-        toName: targetName,
-        text: form.text,
-        files: form.files,
-        date: new Date().toISOString().split("T")[0],
-        read: false
-      };
-    });
-
-    if (API_URL) {
-      newMsgs.forEach(m => {
-        fetch(`${API_URL}/api/messages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(m)
-        }).catch(console.error);
-      });
-    }
-
+    const newMsgs = form.to.map(tid => buildMsg(tid, form.text));
+    newMsgs.forEach(apiSend);
     setMessages(ms => [...ms, ...newMsgs]);
-    setForm({ to: [], text: "", files: [] });
+    setForm(f => ({ ...f, text: "", files: [], to: [] }));
     setCompose(false);
-    alert("تم إرسال الرسائل بنجاح");
   };
 
-  // Role-based Contact Filtering
-  const uniqueParents = [];
-  const pIds = new Set();
-  (parents || []).forEach(p => {
-    if (p && p.id && !pIds.has(String(p.id))) {
-      uniqueParents.push(p);
-      pIds.add(String(p.id));
-    }
-  });
+  const sendReply = () => {
+    if (!chatWith || !replyText.trim()) return;
+    const msg = buildMsg(chatWith.id, replyText);
+    msg.toName = chatWith.name;
+    apiSend(msg);
+    setMessages(ms => [...ms, msg]);
+    setReplyText("");
+  };
 
-  let filteredContacts = [
+  // Contact list (role-filtered)
+  const uniqueParents = [];
+  const pSet = new Set();
+  (parents||[]).forEach(p => { if (p?.id && !pSet.has(String(p.id))) { uniqueParents.push(p); pSet.add(String(p.id)); } });
+  let allContacts = [
     { id: "admin", name: "الإدارة", type: "admin" },
-    ...(coaches || []).map(c => ({ id: c.id, name: c.name, type: "coach", groupId: c.groupId })),
+    ...(coaches||[]).map(c => ({ id: c.id, name: c.name, type: "coach" })),
     ...uniqueParents.map(p => ({ id: p.id, name: p.name, type: "parent" })),
   ].filter(c => String(c.id) !== String(meId));
-
   if (role === "parent") {
-    // Parent can only message Admin and their child's Coach
-    const safeCoachIds = (myCoachIds || []).map(String);
-    filteredContacts = filteredContacts.filter(c => c.type === "admin" || (c.type === "coach" && safeCoachIds.includes(String(c.id))));
+    const cIds = (myCoachIds||[]).map(String);
+    allContacts = allContacts.filter(c => c.type === "admin" || (c.type === "coach" && cIds.includes(String(c.id))));
   } else if (role === "coach") {
-    // Coach can message Admin and Parents in their group
-    const myGid = String(myGroupId);
-    const myGroupParentIds = (players || []).filter(p => p && String(p.groupId) === myGid).map(p => String(p.parentId));
-    filteredContacts = filteredContacts.filter(c => c.type === "admin" || (c.type === "parent" && myGroupParentIds.includes(String(c.id))));
+    const gPids = (players||[]).filter(p => p && String(p.groupId) === String(myGroupId)).map(p => String(p.parentId));
+    allContacts = allContacts.filter(c => c.type === "admin" || (c.type === "parent" && gPids.includes(String(c.id))));
   }
 
-  const allContacts = filteredContacts;
+  const toggleRecipient = id => setForm(f => ({ ...f, to: f.to.includes(id) ? f.to.filter(x => x !== id) : [...f.to, id] }));
+  const selectGroup = type => setForm(f => ({ ...f, to: allContacts.filter(c => type === "all" || c.type === type).map(c => c.id) }));
 
-  const toggleRecipient = (id) => {
-    setForm(f => {
-      const isSelected = f.to.includes(id);
-      return { ...f, to: isSelected ? f.to.filter(x => x !== id) : [...f.to, id] };
-    });
-  };
+  const threadMsgs = chatWith
+    ? messages.filter(m => (m.from === meId && m.to === chatWith.id) || (m.from === chatWith.id && m.to === meId)).sort((a,b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+    : [];
 
-  const selectGroup = (type) => {
-    const ids = allContacts.filter(c => type === "all" || c.type === type).map(c => c.id);
-    setForm(f => ({ ...f, to: ids }));
-  };
+  const convMap = {};
+  mine.forEach(m => {
+    const pid = m.from === meId ? m.to : m.from;
+    const pn  = m.from === meId ? m.toName : m.fromName;
+    if (!convMap[pid]) convMap[pid] = { id: pid, name: pn, msgs: [], unread: 0 };
+    convMap[pid].msgs.push(m);
+    if (m.to === meId && !m.read) convMap[pid].unread++;
+  });
+  const conversations = Object.values(convMap).sort((a,b) => (b.msgs.at(-1)?.id||"").localeCompare(a.msgs.at(-1)?.id||""));
 
+  // ── CHAT THREAD ─────────────────────────────────────────────
+  if (chatWith) {
+    threadMsgs.filter(m => m.to === meId && !m.read).forEach(m => markRead(m.id));
+    return (
+      <div style={{ display:"flex", flexDirection:"column", height:"calc(100vh - 160px)", minHeight:500, borderRadius:18, overflow:"hidden", border:`1px solid ${t.border}` }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 20px", background:t.bg2, flexShrink:0 }}>
+          <button onClick={() => setChatWith(null)} style={{ background:"none", border:"none", color:t.textDim, cursor:"pointer", fontSize:20, padding:"2px 8px" }}>←</button>
+          <Avatar name={chatWith.name} size={40} color="#7C49A8"/>
+          <div>
+            <div style={{ fontWeight:800, fontSize:14, color:t.text }}>{chatWith.name}</div>
+            <div style={{ fontSize:11, color:t.textDim }}>{threadMsgs.length} رسالة</div>
+          </div>
+        </div>
+        <div style={{ flex:1, overflowY:"auto", padding:"20px 16px", background:t.name==="dark"?"#06051A":"#F7F5FF", display:"flex", flexDirection:"column", gap:14 }}>
+          {threadMsgs.length===0 && <div style={{ textAlign:"center", color:t.textFaint, padding:"60px 0" }}><div style={{ fontSize:38, marginBottom:10 }}>💬</div><div>ابدأ محادثة مع {chatWith.name}</div></div>}
+          {threadMsgs.map(m => {
+            const isMe = m.from === meId;
+            return (
+              <div key={m.id} style={{ display:"flex", flexDirection:isMe?"row-reverse":"row", gap:10, alignItems:"flex-end" }}>
+                <Avatar name={isMe ? meName : m.fromName} size={28} color={isMe?"#10B981":"#7C49A8"}/>
+                <div style={{ maxWidth:"72%", background:isMe?"linear-gradient(135deg,#7C49A8,#5A2D82)":t.bg2, color:isMe?"#fff":t.text, padding:"12px 16px", borderRadius:isMe?"18px 4px 18px 18px":"4px 18px 18px 18px", fontSize:13, lineHeight:1.6, boxShadow:isMe?"0 4px 14px rgba(124,73,168,.3)":"none", border:isMe?"none":`1px solid ${t.border}` }}>
+                  {m.text}
+                  <div style={{ fontSize:9, opacity:.55, marginTop:5, textAlign:isMe?"left":"right" }}>{m.date}</div>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={chatEndRef}/>
+        </div>
+        <div style={{ padding:"8px 14px", background:t.bg2, borderTop:`1px solid ${t.border}`, display:"flex", gap:6, overflowX:"auto", flexShrink:0 }}>
+          {templates.slice(0,3).map((tp,i) => (
+            <button key={i} onClick={() => setReplyText(tp.text)} style={{ whiteSpace:"nowrap", padding:"5px 12px", borderRadius:20, border:`1px solid ${t.border}`, background:"transparent", color:t.textDim, fontSize:11, cursor:"pointer" }}>⚡ {tp.label}</button>
+          ))}
+        </div>
+        <div style={{ display:"flex", gap:10, padding:"12px 14px", background:t.bg2, borderTop:`1px solid ${t.border}`, flexShrink:0 }}>
+          <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
+            onKeyDown={e => { if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendReply(); } }}
+            rows={2} placeholder={`رد على ${chatWith.name}...`}
+            style={{ flex:1, background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:12, padding:"10px 14px", color:t.text, fontSize:13, resize:"none", outline:"none", fontFamily:"'Cairo',sans-serif" }}/>
+          <button onClick={sendReply} style={{ width:44, height:44, borderRadius:12, background:"linear-gradient(135deg,#7C49A8,#5A2D82)", border:"none", color:"#fff", cursor:"pointer", fontSize:20, display:"grid", placeItems:"center", alignSelf:"flex-end" }}>↑</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── INBOX ────────────────────────────────────────────────────
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div style={{ fontSize: 12, color: t.textDim }}>{mine.length} رسالة</div>
-        <Btn onClick={() => setCompose(true)} style={{ padding: "10px 22px", borderRadius: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ animation: "spin 3s linear infinite", display: "inline-block" }}>✉️</span>
-            <span>رسالة احترافية جديدة</span>
-          </div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+        <div style={{ fontSize:12, color:t.textDim }}>{conversations.length} محادثة</div>
+        <Btn onClick={() => setCompose(true)} style={{ padding:"10px 22px", borderRadius:12 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}><span style={{ animation:"spin 3s linear infinite", display:"inline-block" }}>✉️</span><span>رسالة جديدة</span></div>
         </Btn>
       </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {mine.map((m, i) => {
-          const isMe  = m.from === meId;
-          const unread = m.to === meId && !m.read;
+      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+        {conversations.map((conv,i) => {
+          const last = conv.msgs.at(-1);
+          const isLastMe = last?.from === meId;
           return (
-            <div key={m.id} onClick={() => unread && markRead(m.id)}
-              style={{ background: unread ? t.name === "dark" ? "linear-gradient(135deg,#13111F,#0A0815)" : "#F5F0FF" : t.bg2, border: `1px solid ${unread ? "rgba(124,73,168,.4)" : t.border}`, borderRadius: 18, padding: "18px 22px", cursor: unread ? "pointer" : "default", transition: "all .2s", animation: `fadeUp .4s ${i * .05}s ease both`, boxShadow: unread ? "0 10px 25px rgba(124,73,168,.1)" : "none" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <Avatar name={isMe ? m.toName : m.fromName} size={36} color={isMe ? "#10B981" : "#7C49A8"}/>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: isMe ? t.textDim : t.text }}>{isMe ? `إلى: ${m.toName}` : `من: ${m.fromName}`}</div>
-                    <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>{m.date}</div>
-                  </div>
+            <div key={conv.id} onClick={() => setChatWith({ id:conv.id, name:conv.name })}
+              style={{ display:"flex", alignItems:"center", gap:14, background:conv.unread>0?(t.name==="dark"?"linear-gradient(135deg,#13111F,#0A0815)":"#F5F0FF"):t.bg2, border:`1px solid ${conv.unread>0?"rgba(124,73,168,.4)":t.border}`, borderRadius:16, padding:"16px 20px", cursor:"pointer", transition:"all .2s", animation:`fadeUp .3s ${i*.04}s ease both` }}
+              onMouseEnter={e => e.currentTarget.style.borderColor="#7C49A8"} onMouseLeave={e => e.currentTarget.style.borderColor=conv.unread>0?"rgba(124,73,168,.4)":t.border}>
+              <div style={{ position:"relative" }}>
+                <Avatar name={conv.name} size={44} color={conv.id==="admin"?"#7C49A8":"#06B6D4"}/>
+                {conv.unread>0 && <div style={{ position:"absolute", top:-3, left:-3, width:18, height:18, borderRadius:"50%", background:"#EF4444", color:"#fff", fontSize:10, fontWeight:900, display:"grid", placeItems:"center" }}>{conv.unread}</div>}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                  <div style={{ fontWeight:800, fontSize:13, color:t.text }}>{conv.name}</div>
+                  <div style={{ fontSize:10, color:t.textFaint }}>{last?.date}</div>
                 </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {isMe && <Chip text="مُرسلة" color={t.textFaint} size={10}/>}
-                  {unread && <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#7C49A8", animation: "pulse 2s infinite" }}/>}
+                <div style={{ fontSize:12, color:conv.unread>0?t.textMid:t.textDim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {isLastMe?"أنت: ":""}{last?.text}
                 </div>
               </div>
-              <div style={{ fontSize: 14, color: t.textMid, lineHeight: 1.8, background: t.bg, borderRadius: 12, padding: "14px 18px", border: `1px solid ${t.border}` }}>
-                {m.text}
-                {m.files?.length > 0 && (
-                  <div style={{ marginTop: 12, borderTop: `1px solid ${t.border}`, paddingTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {m.files.map((f, fi) => (
-                      <div key={fi} style={{ background: t.bg2, padding: "6px 12px", borderRadius: 8, fontSize: 11, border: `1px solid ${t.border}`, display: "flex", alignItems: "center", gap: 6 }}>
-                        📎 {f.name}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <div style={{ color:t.textFaint, fontSize:20 }}>›</div>
             </div>
           );
         })}
-        {mine.length === 0 && (
-          <div style={{ padding: 80, textAlign: "center", color: t.textFaint }}>
-            <div style={{ fontSize: 40, marginBottom: 15, animation: "float 3s infinite" }}>📨</div>
-            <div>صندوق الوارد فارغ حالياً</div>
-          </div>
-        )}
+        {conversations.length===0 && <div style={{ padding:80, textAlign:"center", color:t.textFaint }}><div style={{ fontSize:40, marginBottom:15, animation:"float 3s infinite" }}>📨</div><div>صندوق الوارد فارغ حالياً</div></div>}
       </div>
 
       {compose && (
-        <Modal title="✉️ إنشاء رسالة ذكية" onClose={() => setCompose(false)} wide t={t}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 20 }}>
+        <Modal title="✉️ رسالة جديدة" onClose={() => setCompose(false)} wide t={t}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 270px", gap:20 }}>
             <div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, color: t.textDim, fontWeight: 700, display: "block", marginBottom: 10 }}>المستلمون ({form.to.length})</label>
-                
-                {/* Section Filters */}
-                <div style={{ display: "flex", background: t.bg, borderRadius: 10, padding: 4, marginBottom: 12, border: `1px solid ${t.border}` }}>
-                  <button onClick={() => setFilterType("all")} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", background: filterType === "all" ? "#7C49A8" : "transparent", color: filterType === "all" ? "#fff" : t.textDim, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>الكل</button>
-                  <button onClick={() => setFilterType("coach")} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", background: filterType === "coach" ? "#06B6D4" : "transparent", color: filterType === "coach" ? "#fff" : t.textDim, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>المدربين</button>
-                  <button onClick={() => setFilterType("parent")} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", background: filterType === "parent" ? "#10B981" : "transparent", color: filterType === "parent" ? "#fff" : t.textDim, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>أولياء الأمور</button>
+              <div style={{ marginBottom:16 }}>
+                <label style={{ fontSize:12, color:t.textDim, fontWeight:700, display:"block", marginBottom:10 }}>المستلمون ({form.to.length})</label>
+                <div style={{ display:"flex", background:t.bg, borderRadius:10, padding:4, marginBottom:10, border:`1px solid ${t.border}` }}>
+                  {["all","coach","parent"].map(f => (
+                    <button key={f} onClick={() => setFilterType(f)} style={{ flex:1, padding:"8px", borderRadius:8, border:"none", background:filterType===f?"#7C49A8":"transparent", color:filterType===f?"#fff":t.textDim, fontSize:11, cursor:"pointer", fontWeight:700 }}>
+                      {f==="all"?"الكل":f==="coach"?"المدربون":"أولياء الأمور"}
+                    </button>
+                  ))}
                 </div>
-
-                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                  <button onClick={() => selectGroup(filterType)} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${filterType === 'all' ? '#7C49A8' : filterType === 'coach' ? '#06B6D4' : '#10B981'}`, background: "transparent", color: t.text, fontSize: 10, cursor: "pointer", fontWeight: 600 }}>تحديد كل {filterType === "all" ? "القائمة" : filterType === "coach" ? "المدربين" : "أولياء الأمور"}</button>
-                  <button onClick={() => setForm(f => ({ ...f, to: [] }))} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${t.border}`, background: "transparent", color: t.textDim, fontSize: 10, cursor: "pointer" }}>إلغاء التحديد</button>
+                <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                  <button onClick={() => selectGroup(filterType)} style={{ padding:"5px 12px", borderRadius:8, border:"1px solid #7C49A8", background:"transparent", color:t.text, fontSize:10, cursor:"pointer" }}>تحديد الكل</button>
+                  <button onClick={() => setForm(f => ({...f, to:[]}))} style={{ padding:"5px 12px", borderRadius:8, border:`1px solid ${t.border}`, background:"transparent", color:t.textDim, fontSize:10, cursor:"pointer" }}>إلغاء</button>
                 </div>
-
-                <div style={{ maxHeight: 180, overflowY: "auto", background: t.inputBg, borderRadius: 12, padding: 10, border: `1px solid ${t.border}` }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                    {allContacts.filter(c => filterType === "all" || c.type === filterType).map(c => (
-                      <div key={c.id} onClick={() => toggleRecipient(c.id)} style={{ padding: "8px 10px", borderRadius: 8, background: form.to.includes(c.id) ? "rgba(124,73,168,.12)" : "transparent", border: `1px solid ${form.to.includes(c.id) ? "#7C49A8" : "transparent"}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-                        <div style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${form.to.includes(c.id) ? "#7C49A8" : t.border}`, display: "grid", placeItems: "center" }}>
-                          {form.to.includes(c.id) && <div style={{ width: 8, height: 8, borderRadius: 2, background: "#7C49A8" }}/>}
+                <div style={{ maxHeight:160, overflowY:"auto", background:t.inputBg, borderRadius:12, padding:10, border:`1px solid ${t.border}` }}>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                    {allContacts.filter(c => filterType==="all" || c.type===filterType).map(c => (
+                      <div key={c.id} onClick={() => toggleRecipient(c.id)} style={{ padding:"8px 10px", borderRadius:8, background:form.to.includes(c.id)?"rgba(124,73,168,.12)":"transparent", border:`1px solid ${form.to.includes(c.id)?"#7C49A8":"transparent"}`, cursor:"pointer", display:"flex", alignItems:"center", gap:8, fontSize:12 }}>
+                        <div style={{ width:16, height:16, borderRadius:4, border:`1px solid ${form.to.includes(c.id)?"#7C49A8":t.border}`, display:"grid", placeItems:"center" }}>
+                          {form.to.includes(c.id) && <div style={{ width:8, height:8, borderRadius:2, background:"#7C49A8" }}/>}
                         </div>
-                        <span style={{ color: form.to.includes(c.id) ? t.text : t.textDim }}>{c.name}</span>
+                        <span style={{ color:form.to.includes(c.id)?t.text:t.textDim }}>{c.name}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
-
-              <div style={{ marginBottom: 18 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                  <label style={{ fontSize: 12, color: t.textDim, fontWeight: 700 }}>نص الرسالة</label>
-                  <div style={{ fontSize: 10, color: t.textFaint }}>{form.text.length}/500</div>
+              <div style={{ marginBottom:14 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                  <label style={{ fontSize:12, color:t.textDim, fontWeight:700 }}>نص الرسالة</label>
+                  <div style={{ fontSize:10, color:t.textFaint }}>{form.text.length}/500</div>
                 </div>
-                <textarea value={form.text} onChange={e => setForm(f => ({ ...f, text: e.target.value }))} rows={5} placeholder="اكتب رسالتك هنا..."
-                  style={{ width: "100%", background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 14, padding: "14px 16px", color: t.text, fontSize: 14, resize: "none", outline: "none", fontFamily: "'Cairo',sans-serif", lineHeight: 1.6 }}/>
-              </div>
-
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ fontSize: 12, color: t.textDim, fontWeight: 700, display: "block", marginBottom: 10 }}>المرفقات 📎</label>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {form.files.map((f, idx) => (
-                    <div key={idx} style={{ background: "rgba(124,73,168,.1)", padding: "8px 12px", borderRadius: 10, fontSize: 11, display: "flex", alignItems: "center", gap: 10 }}>
-                      <span>📄 {f.name}</span>
-                      <button onClick={() => setForm(f => ({ ...f, files: f.files.filter((_, i) => i !== idx) }))} style={{ border: "none", background: "none", color: "#EF4444", cursor: "pointer", fontWeight: 900 }}>✕</button>
-                    </div>
-                  ))}
-                  <label style={{ width: 40, height: 40, borderRadius: 10, background: t.bg2, border: `2px dashed ${t.border}`, display: "grid", placeItems: "center", cursor: "pointer", fontSize: 18 }}>
-                    +
-                    <input type="file" multiple style={{ display: "none" }} onChange={e => {
-                      const newFiles = Array.from(e.target.files).map(f => ({ name: f.name, size: f.size }));
-                      setForm(f => ({ ...f, files: [...f.files, ...newFiles] }));
-                    }} />
-                  </label>
-                </div>
+                <textarea value={form.text} onChange={e => setForm(f => ({...f, text:e.target.value}))} rows={5} placeholder="اكتب رسالتك هنا..."
+                  style={{ width:"100%", background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:14, padding:"14px 16px", color:t.text, fontSize:14, resize:"none", outline:"none", fontFamily:"'Cairo',sans-serif", lineHeight:1.6 }}/>
               </div>
             </div>
-
-            <div style={{ borderRight: `1px solid ${t.border}`, paddingRight: 20 }}>
-              <div style={{ fontWeight: 800, fontSize: 13, color: "#7C49A8", marginBottom: 15, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ animation: "pulse 2s infinite" }}>⚡</span> رسائل جاهزة
+            <div style={{ borderRight:`1px solid ${t.border}`, paddingRight:20 }}>
+              <div style={{ fontWeight:800, fontSize:13, color:"#7C49A8", marginBottom:12, display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ animation:"pulse 2s infinite" }}>⚡</span> رسائل جاهزة
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {QUICK_TEMPLATES.map((tmp, idx) => (
-                  <button key={idx} onClick={() => setForm(f => ({ ...f, text: tmp.text }))}
-                    style={{ textAlign: "right", padding: "12px 14px", borderRadius: 12, background: t.bg2, border: `1px solid ${t.border}`, color: t.textMid, fontSize: 11, cursor: "pointer", transition: "all .2s" }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = "#7C49A8"} onMouseLeave={e => e.currentTarget.style.borderColor = t.border}>
-                    <div style={{ fontWeight: 800, marginBottom: 4, color: "#7C49A8" }}>{tmp.label}</div>
-                    <div style={{ opacity: .7, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tmp.text}</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {templates.map((tp,i) => (
+                  <button key={i} onClick={() => setForm(f => ({...f, text:tp.text}))}
+                    style={{ textAlign:"right", padding:"10px 12px", borderRadius:12, background:t.bg2, border:`1px solid ${t.border}`, color:t.textMid, fontSize:11, cursor:"pointer", transition:"all .2s" }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor="#7C49A8"} onMouseLeave={e => e.currentTarget.style.borderColor=t.border}>
+                    <div style={{ fontWeight:800, marginBottom:3, color:"#7C49A8", fontSize:11 }}>{tp.label}</div>
+                    <div style={{ opacity:.6, fontSize:10, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{tp.text}</div>
                   </button>
                 ))}
               </div>
-              <div style={{ marginTop: 25, background: "linear-gradient(135deg,rgba(216,164,53,.1),transparent)", padding: 15, borderRadius: 14, border: "1px solid rgba(216,164,53,.2)" }}>
-                <div style={{ fontSize: 11, color: "#D8A435", fontWeight: 800, marginBottom: 6 }}>💡 نصيحة الإدارة</div>
-                <div style={{ fontSize: 10, color: t.textDim, lineHeight: 1.6 }}>استخدام الرسائل الجاهزة يوفر الوقت ويضمن وصول المعلومة بشكل موحد ومهني.</div>
-              </div>
             </div>
           </div>
-
-          <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
-            <Btn onClick={send} style={{ flex: 1, height: 48, fontSize: 15 }}>إرسال الرسالة الآن 🚀</Btn>
-            <Btn variant="secondary" onClick={() => setCompose(false)} style={{ height: 48 }}>إلغاء</Btn>
+          <div style={{ display:"flex", gap:12, marginTop:14 }}>
+            <Btn onClick={send} style={{ flex:1, height:48, fontSize:15 }}>إرسال الرسالة 🚀</Btn>
+            <Btn variant="secondary" onClick={() => setCompose(false)} style={{ height:48 }}>إلغاء</Btn>
           </div>
         </Modal>
       )}
