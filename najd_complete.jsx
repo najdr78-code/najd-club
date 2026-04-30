@@ -2006,16 +2006,14 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals = [], coache
 
 /* ── Invoice Modal ──────────────────────────────────── */
 function InvoiceModal({ payment, allPayments, player, onClose, onSendMessage, t }) {
-  // Collect all payments for the same player in the same month as this payment
-  const invoiceId = `INV-${Date.now()}`;
+  const invoiceNum = `INV-${String(Date.now()).slice(-8)}`;
   const sameMonthPays = allPayments.filter(p =>
-    String(p.playerId) === String(payment.playerId) &&
-    p.month === payment.month
+    String(p.playerId) === String(payment.playerId) && p.month === payment.month
   );
   const totalAmount = sameMonthPays.reduce((a, p) => a + (p.amount || 0), 0);
   const dateObj = new Date(payment.date);
-  const months = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
-  const dateStr = `${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+  const monthNames = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+  const dateStr = `${dateObj.getDate()} ${monthNames[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
 
   const terms = [
     "لا يحق للمشترك المطالبة بأي مبلغ في حال أراد عدم الاكمال في التدريبات لأي ظرف كان.",
@@ -2026,56 +2024,63 @@ function InvoiceModal({ payment, allPayments, player, onClose, onSendMessage, t 
     "الأكاديمية مسؤوليه كامله عن استقبال المشتركين وتوديعهم ومتابعة حركة الباص."
   ];
 
-  const printInvoice = () => {
-    const printContent = document.getElementById('invoice-print-area').innerHTML;
-    const w = window.open('', '_blank');
-    w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>فاتورة - ${player?.name}</title>
-    <style>
-      body{font-family:'Arial',sans-serif;direction:rtl;padding:30px;max-width:700px;margin:0 auto;color:#111}
-      .logo{text-align:center;margin-bottom:16px}
-      .logo img{height:80px}
-      h2{text-align:center;text-decoration:underline;font-size:18px;margin:0 0 4px}
-      h3{text-align:center;font-size:15px;margin:0 0 24px}
-      .info p{margin:6px 0;font-size:14px}
-      .items-table{width:100%;border-collapse:collapse;margin:16px 0}
-      .items-table th,.items-table td{border:1px solid #ccc;padding:8px 12px;font-size:13px}
-      .items-table th{background:#f5f5f5;font-weight:700}
-      .total{font-size:15px;font-weight:700;margin:12px 0}
-      .terms{margin-top:20px;font-size:12px}
-      .terms h4{font-weight:700;margin-bottom:8px}
-      .terms ol{padding-right:18px}
-      .terms li{margin-bottom:5px;line-height:1.5}
-      .sig{display:flex;justify-content:space-between;margin-top:60px;font-size:13px}
-      .sig-box{text-align:center;width:200px}
-      .sig-line{border-top:1px solid #666;margin-top:40px;padding-top:6px}
-      @media print{body{padding:0}}
-    </style>
-    </head><body>${printContent}</body></html>`);
-    w.document.close();
-    w.focus();
-    setTimeout(() => { w.print(); w.close(); }, 400);
-  };
+  const printStylesheet = `
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Cairo',Arial,sans-serif;direction:rtl;background:#fff;color:#1a1a2e;padding:32px;max-width:740px;margin:0 auto}
+    .inv-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:18px;border-bottom:3px solid #7C49A8;margin-bottom:20px}
+    .inv-logo{width:80px;height:80px;object-fit:contain}
+    .inv-club-info{text-align:center;flex:1}
+    .inv-club-name{font-size:22px;font-weight:900;color:#7C49A8;letter-spacing:-.5px}
+    .inv-club-sub{font-size:12px;color:#888;margin-top:2px}
+    .inv-num{text-align:left;font-size:12px;color:#555}
+    .inv-num strong{display:block;font-size:14px;color:#7C49A8;font-weight:800}
+    .inv-title-bar{background:linear-gradient(135deg,#7C49A8,#A855F7);color:#fff;text-align:center;padding:10px;font-size:18px;font-weight:900;border-radius:8px;margin-bottom:18px;letter-spacing:.5px}
+    .inv-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;background:#f8f6ff;border-radius:8px;padding:14px 18px;margin-bottom:18px;border:1px solid #e8e0ff}
+    .inv-info-item{font-size:13px}
+    .inv-info-label{color:#888;font-size:11px;display:block;margin-bottom:1px}
+    .inv-info-value{font-weight:700;color:#1a1a2e}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px}
+    thead tr{background:#7C49A8;color:#fff}
+    thead th{padding:10px 14px;text-align:right;font-size:13px;font-weight:700}
+    tbody tr:nth-child(even){background:#f8f6ff}
+    tbody td{padding:10px 14px;font-size:13px;border-bottom:1px solid #eee}
+    .amt-cell{text-align:left;font-weight:800;color:#7C49A8}
+    .inv-total{background:linear-gradient(135deg,#7C49A8,#A855F7);color:#fff;border-radius:8px;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;font-size:16px;margin-bottom:20px}
+    .inv-total-label{font-weight:700}
+    .inv-total-amt{font-size:22px;font-weight:900;color:#D8A435}
+    .terms-box{background:#fffbf0;border:1px solid #D8A435;border-radius:8px;padding:14px 18px;margin-bottom:20px}
+    .terms-title{font-size:13px;font-weight:900;color:#D8A435;margin-bottom:8px}
+    .terms-list{padding-right:18px}
+    .terms-list li{font-size:11px;color:#555;margin-bottom:5px;line-height:1.6}
+    .sig-area{display:flex;justify-content:flex-end;margin-top:30px;padding-top:16px;border-top:1px dashed #ccc}
+    .sig-box{text-align:center;width:180px}
+    .sig-label{font-size:12px;color:#555;font-weight:700;margin-bottom:40px}
+    .sig-line{border-top:1px solid #666;padding-top:6px;font-size:11px;color:#888}
+    .inv-footer{text-align:center;margin-top:20px;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:12px}
+    @media print{body{padding:16px}@page{margin:10mm}}
+  `;
 
-  const sendViaMessages = () => {
-    const text = `🧾 فاتورة إلكترونية - نادي نجد\n\nاسم اللاعب: ${player?.name}\nالشهر: ${payment.month}\nتاريخ الإصدار: ${dateStr}\n\nالبنود:\n${sameMonthPays.map(p => `• ${PAY_TYPES[p.type]?.label || p.type}: ${fmtMoney(p.amount)}`).join('\n')}\n\nإجمالي المبلغ: ${fmtMoney(totalAmount)}\n\nشكراً لثقتكم في نادي نجد الرياض 🌟`;
-    onSendMessage && onSendMessage(text);
-    onClose();
-  };
-
-  const invoiceHTML = `
-    <div class="logo">
-      <img src="/logo2.png" alt="نادي نجد" onerror="this.style.display='none'"/>
+  const buildInvoiceHTML = () => `
+    <div class="inv-header">
+      <img class="inv-logo" src="/logo2.png" alt="نادي نجد" onerror="this.style.display='none'"/>
+      <div class="inv-club-info">
+        <div class="inv-club-name">نادي نجد الرياض</div>
+        <div class="inv-club-sub">أكاديمية كرة القدم</div>
+      </div>
+      <div class="inv-num">
+        <strong>${invoiceNum}</strong>
+        رقم الفاتورة
+      </div>
     </div>
-    <h2>نموذج فاتورة مشترك نادي نجد الرياض</h2>
-    <h3>فاتورة مشترك</h3>
-    <div class="info">
-      <p><strong>رقم الفاتورة:</strong> ${invoiceId}</p>
-      <p><strong>اسم اللاعب:</strong> ${player?.name || '—'}</p>
-      <p><strong>تاريخ الإصدار:</strong> ${dateStr}</p>
-      <p><strong>الشهر:</strong> ${payment.month}</p>
-      ${payment.note ? `<p><strong>ملاحظات إضافية:</strong> ${payment.note}</p>` : ''}
+    <div class="inv-title-bar">فاتورة مشترك</div>
+    <div class="inv-info-grid">
+      <div class="inv-info-item"><span class="inv-info-label">اسم اللاعب</span><span class="inv-info-value">${player?.name || '—'}</span></div>
+      <div class="inv-info-item"><span class="inv-info-label">الشهر</span><span class="inv-info-value">${payment.month}</span></div>
+      <div class="inv-info-item"><span class="inv-info-label">تاريخ الإصدار</span><span class="inv-info-value">${dateStr}</span></div>
+      ${payment.note ? `<div class="inv-info-item"><span class="inv-info-label">ملاحظات</span><span class="inv-info-value">${payment.note}</span></div>` : ''}
     </div>
-    <table class="items-table">
+    <table>
       <thead><tr><th>#</th><th>البند</th><th>التفاصيل</th><th>المبلغ</th></tr></thead>
       <tbody>
         ${sameMonthPays.map((p, i) => `
@@ -2083,52 +2088,103 @@ function InvoiceModal({ payment, allPayments, player, onClose, onSendMessage, t 
             <td>${i + 1}</td>
             <td>${PAY_TYPES[p.type]?.icon || ''} ${PAY_TYPES[p.type]?.label || p.type}</td>
             <td>${p.month}</td>
-            <td style="text-align:left">${fmtMoney(p.amount)}</td>
+            <td class="amt-cell">${fmtMoney(p.amount)}</td>
           </tr>
         `).join('')}
       </tbody>
     </table>
-    <p class="total">إجمالي مبلغ الاشتراك المستحق: ${fmtMoney(totalAmount)}</p>
-    <div class="terms">
-      <h4>شروط:</h4>
-      <ol>${terms.map(t => `<li>${t}</li>`).join('')}</ol>
+    <div class="inv-total">
+      <span class="inv-total-label">إجمالي مبلغ الاشتراك المستحق</span>
+      <span class="inv-total-amt">${fmtMoney(totalAmount)}</span>
     </div>
-    <div class="sig">
+    <div class="terms-box">
+      <div class="terms-title">📋 الشروط والأحكام</div>
+      <ol class="terms-list">
+        ${terms.map(term => `<li>${term}</li>`).join('')}
+      </ol>
+    </div>
+    <div class="sig-area">
       <div class="sig-box">
-        <div>توقيع ولي الأمر</div>
-        <div class="sig-line"></div>
+        <div class="sig-label">توقيع ولي الأمر</div>
+        <div class="sig-line">الاسم والتوقيع</div>
       </div>
     </div>
+    <div class="inv-footer">نادي نجد الرياض · أكاديمية كرة القدم · تم إنشاء هذه الفاتورة إلكترونياً</div>
   `;
 
+  const printInvoice = () => {
+    const w = window.open('', '_blank');
+    w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>فاتورة ${invoiceNum}</title><style>${printStylesheet}</style></head><body>${buildInvoiceHTML()}</body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); }, 500);
+  };
+
+  const sendViaMessages = () => {
+    const itemsText = sameMonthPays.map((p, i) => `${i+1}. ${PAY_TYPES[p.type]?.label || p.type}: ${fmtMoney(p.amount)}`).join('\n');
+    const termsText = terms.map((term, i) => `${i+1}. ${term}`).join('\n');
+    const invoiceText = [
+      `═══════════════════════════`,
+      `🏆 نادي نجد الرياض — أكاديمية كرة القدم`,
+      `═══════════════════════════`,
+      `🧾 فـاتـورة مشترك`,
+      `───────────────────────────`,
+      `👤 اسم اللاعب: ${player?.name || '—'}`,
+      `📅 الشهر: ${payment.month}`,
+      `🗓 تاريخ الإصدار: ${dateStr}`,
+      `📄 رقم الفاتورة: ${invoiceNum}`,
+      `───────────────────────────`,
+      `📦 البنود:`,
+      itemsText,
+      `───────────────────────────`,
+      `💰 الإجمالي المستحق: ${fmtMoney(totalAmount)}`,
+      `═══════════════════════════`,
+      `📋 الشروط:`,
+      termsText,
+      `═══════════════════════════`,
+      `🙏 شكراً لثقتكم في نادي نجد الرياض`,
+    ].join('\n');
+    onSendMessage && onSendMessage(invoiceText);
+    onClose();
+  };
+
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.85)", display:"grid", placeItems:"center", zIndex:99999, backdropFilter:"blur(8px)" }}
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.9)", display:"grid", placeItems:"center", zIndex:99999, backdropFilter:"blur(10px)" }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: t.bg2, border:`1px solid ${t.border2}`, borderRadius:22, padding:30, width:"min(720px,95vw)", maxHeight:"90vh", overflowY:"auto", animation:"scaleIn .25s ease", color:t.text, direction:"rtl" }}>
-        {/* Header */}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
-          <div style={{ fontWeight:800, fontSize:16, color:t.text }}>🧾 فاتورة إلكترونية</div>
-          <button onClick={onClose} style={{ background:"transparent", border:"none", color:t.textDim, fontSize:22, cursor:"pointer" }}>✕</button>
+      <div style={{ background:t.bg2, border:`2px solid rgba(124,73,168,.4)`, borderRadius:24, padding:"24px 28px", width:"min(760px,96vw)", maxHeight:"94vh", overflowY:"auto", animation:"scaleIn .25s ease", color:t.text, direction:"rtl", boxShadow:"0 24px 80px rgba(124,73,168,.3)" }}>
+        {/* Header bar */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18, paddingBottom:14, borderBottom:`1px solid ${t.border}` }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ width:38, height:38, borderRadius:10, background:"linear-gradient(135deg,#7C49A8,#A855F7)", display:"grid", placeItems:"center", fontSize:20 }}>🧾</div>
+            <div>
+              <div style={{ fontWeight:900, fontSize:16, color:t.text }}>فاتورة إلكترونية</div>
+              <div style={{ fontSize:11, color:"#A78BFA" }}>{invoiceNum} · {player?.name}</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.2)", borderRadius:10, color:"#EF4444", width:36, height:36, cursor:"pointer", fontSize:16, fontFamily:"'Cairo',sans-serif" }}>✕</button>
         </div>
 
-        {/* Invoice preview area */}
-        <div id="invoice-print-area" style={{ background:"#fff", color:"#111", borderRadius:14, padding:28, marginBottom:20, direction:"rtl", fontFamily:"Arial,sans-serif" }}
-          dangerouslySetInnerHTML={{ __html: invoiceHTML }}/>
+        {/* Invoice preview */}
+        <div id="invoice-print-area"
+          style={{ background:"#fff", color:"#1a1a2e", borderRadius:16, padding:28, marginBottom:20, direction:"rtl", fontFamily:"'Cairo',Arial,sans-serif", border:"1px solid #e8e0ff", boxShadow:"0 4px 20px rgba(124,73,168,.1)" }}>
+          <style dangerouslySetInnerHTML={{ __html: printStylesheet }}/>
+          <div dangerouslySetInnerHTML={{ __html: buildInvoiceHTML() }}/>
+        </div>
 
-        {/* Action buttons */}
+        {/* Actions */}
         <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
           <button onClick={printInvoice}
-            style={{ flex:1, minWidth:160, height:46, borderRadius:12, border:"none", background:"linear-gradient(135deg,#7C49A8,#A855F7)", color:"#fff", fontSize:14, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, fontFamily:"'Cairo',sans-serif" }}>
-            🖨️ طباعة / مشاركة PDF
+            style={{ flex:1, minWidth:180, height:50, borderRadius:14, border:"none", background:"linear-gradient(135deg,#7C49A8,#A855F7)", color:"#fff", fontSize:14, fontWeight:800, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, fontFamily:"'Cairo',sans-serif", boxShadow:"0 4px 16px rgba(124,73,168,.4)" }}>
+            🖨️ طباعة / PDF
           </button>
           {onSendMessage && (
             <button onClick={sendViaMessages}
-              style={{ flex:1, minWidth:160, height:46, borderRadius:12, border:`1px solid ${t.border}`, background:t.bg, color:t.text, fontSize:14, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, fontFamily:"'Cairo',sans-serif" }}>
-              📨 إرسال لولي الأمر عبر الرسائل
+              style={{ flex:1, minWidth:180, height:50, borderRadius:14, border:`2px solid #D8A435`, background:"rgba(216,164,53,.1)", color:"#D8A435", fontSize:14, fontWeight:800, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, fontFamily:"'Cairo',sans-serif" }}>
+              📨 إرسال لولي الأمر
             </button>
           )}
           <button onClick={onClose}
-            style={{ height:46, borderRadius:12, border:`1px solid ${t.border}`, background:"transparent", color:t.textDim, fontSize:13, cursor:"pointer", padding:"0 18px", fontFamily:"'Cairo',sans-serif" }}>
+            style={{ height:50, borderRadius:14, border:`1px solid ${t.border}`, background:"transparent", color:t.textDim, fontSize:13, cursor:"pointer", padding:"0 20px", fontFamily:"'Cairo',sans-serif" }}>
             إغلاق
           </button>
         </div>
@@ -2137,18 +2193,26 @@ function InvoiceModal({ payment, allPayments, player, onClose, onSendMessage, t 
   );
 }
 
+
 /* ── Admin Payments ─────────────────────────────────── */
 function AdminPayments({ payments, setPayments, players, coaches, prices, messages, setMessages, t }) {
   const [modal, setModal] = useState(false);
   const [fc, setFc] = useState("الكل");
   const [ft, setFt] = useState("الكل");
+  const [fp, setFp] = useState("الكل"); // player filter
   const [invoiceItem, setInvoiceItem] = useState(null);
   
   const MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"].map(m => `${m} 2026`);
   
   const empty = { playerId: "p1", coachId: "none", types: ["subscription"], month: "أبريل 2026", note: "", date: new Date().toISOString().split("T")[0] };
   const [form, setForm] = useState(empty);
-  const filtered = payments.filter(p => (fc === "الكل" || p.coachId === fc) && (ft === "الكل" || p.type === ft));
+  const filtered = payments.filter(p =>
+    (fc === "الكل" || p.coachId === fc) &&
+    (ft === "الكل" || p.type === ft) &&
+    (fp === "الكل" || String(p.playerId) === String(fp))
+  );
+  // Unique players who have payments
+  const payingPlayers = players.filter(pl => payments.some(p => String(p.playerId) === String(pl.id)));
 
   const toggleType = (type) => {
     setForm(f => {
@@ -2184,19 +2248,39 @@ function AdminPayments({ payments, setPayments, players, coaches, prices, messag
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+      <div style={{ marginBottom: 12, background: "rgba(124,73,168,.05)", padding: 12, borderRadius: 16, border: `1px solid ${t.border}` }}>
+        {/* Row 1: Player filter */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: "#10B981", fontWeight: 800, marginLeft: 8, width: 60 }}>👤 اللاعب:</span>
+          {["الكل", ...payingPlayers.map(pl => pl.id)].map(id => (
+            <button key={id} onClick={() => setFp(id)}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid", borderColor: fp === id ? "#10B981" : t.border, background: fp === id ? "rgba(16,185,129,.15)" : t.bg2, color: fp === id ? "#10B981" : t.textDim, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>
+              {id === "الكل" ? "الكل" : players.find(pl => pl.id === id)?.name.split(" ")[0] || id}
+            </button>
+          ))}
+        </div>
+        {/* Row 2: Coach filter */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: "#7C49A8", fontWeight: 800, marginLeft: 8, width: 60 }}>📋 المدرب:</span>
           {["الكل", ...coaches.map(c => c.id)].map(id => (
-            <button key={id} onClick={() => setFc(id)} style={{ padding: "7px 13px", borderRadius: 8, border: "1px solid", borderColor: fc === id ? "#7C49A8" : t.border, background: fc === id ? "rgba(124,73,168,.12)" : t.bg2, color: fc === id ? "#C4B5FD" : t.textDim, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>
+            <button key={id} onClick={() => setFc(id)}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid", borderColor: fc === id ? "#7C49A8" : t.border, background: fc === id ? "rgba(124,73,168,.12)" : t.bg2, color: fc === id ? "#C4B5FD" : t.textDim, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>
               {id === "الكل" ? "الكل" : coaches.find(c => c.id === id)?.name.split(" ")[0]}
             </button>
           ))}
+        </div>
+        {/* Row 3: Type filter */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: "#D8A435", fontWeight: 800, marginLeft: 8, width: 60 }}>📦 النوع:</span>
           {Object.entries(PAY_TYPES).map(([k, v]) => (
-            <button key={k} onClick={() => setFt(k === ft ? "الكل" : k)} style={{ padding: "7px 13px", borderRadius: 8, border: "1px solid", borderColor: ft === k ? v.color : t.border, background: ft === k ? `${v.color}18` : t.bg2, color: ft === k ? v.color : t.textDim, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>
+            <button key={k} onClick={() => setFt(k === ft ? "الكل" : k)}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid", borderColor: ft === k ? v.color : t.border, background: ft === k ? `${v.color}18` : t.bg2, color: ft === k ? v.color : t.textDim, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>
               {v.icon} {v.label}
             </button>
           ))}
         </div>
+      </div>
+      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
         <Btn onClick={() => { setForm(empty); setModal(true); }}>
           <AnimIcon type="plus" size={14} color="#fff"/> تسجيل دفعة
         </Btn>
@@ -3160,13 +3244,14 @@ function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 18 }} className="s2">
         <StatCard label="الأهداف"   counter={child.goals || 0}         icon="⚽" color="#EF4444" t={t}/>
         <StatCard label="التمريرات" counter={child.assists || 0}       icon="🎯" color="#10B981" t={t}/>
-        <StatCard label="الحضور"    counter={(() => {
+        <StatCard label="الحضور"    value={(() => {
           // Calculate real attendance from childAtt records
           const sessions = childAtt || [];
-          if (!sessions.length) return child.attendancePct ? `${child.attendancePct}%` : '—';
+          if (!sessions.length) return (child.attendancePct && !isNaN(child.attendancePct)) ? `${child.attendancePct}%` : '—';
           let present = 0, total = 0;
           sessions.forEach(a => { if (a.records && a.records[String(child.id)]) { total++; if (a.records[String(child.id)] === 'حاضر') present++; } });
-          return total > 0 ? `${Math.round(present/total*100)}%` : child.attendancePct ? `${child.attendancePct}%` : '—';
+          const res = total > 0 ? Math.round(present/total*100) : (child.attendancePct || 0);
+          return isNaN(res) ? '—' : `${res}%`;
         })()} icon="📅" color="#7C49A8" t={t}/>
         <StatCard label="التقييم"   counter={(() => {
           const latestEval = childEvals.slice(-1)[0];
