@@ -2601,6 +2601,7 @@ function ParentPayments({ child, childPays, prices, t }) {
   const total     = childPays.reduce((a, p) => a + p.amount, 0);
   const monthPaid = childPays.some(p => p.type === "subscription" && p.month === CUR_MONTH);
   const shouldHavePaid = isMonthAfterJoin(CUR_MONTH, child?.joinDate);
+  const byType    = Object.entries(PAY_TYPES).map(([k, v]) => ({ k, ...v, paid: childPays.filter(p => p.type === k).reduce((a, p) => a + p.amount, 0), count: childPays.filter(p => p.type === k).length }));
 
   return (
     <div>
