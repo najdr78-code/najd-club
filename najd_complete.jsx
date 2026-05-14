@@ -795,91 +795,103 @@ export default function App() {
   const t = THEMES[theme];
 
   const shared = { 
-    setPlayers: (val) => {
-      if (typeof val === 'function') {
-        setPlayers(prev => {
-          const next = val(prev);
-          if (API_URL) {
-            const added = next.filter(p => !prev.find(x => x.id === p.id));
-            const updated = next.filter(p => prev.find(x => x.id === p.id && JSON.stringify(x) !== JSON.stringify(p)));
-            [...added, ...updated].forEach(p => {
-              fetch(`${API_URL}/api/players`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(p)
-              }).catch(console.error);
-            });
-          }
-          return next;
-        });
-      } else {
-        setPlayers(val);
-      }
-    },
-    parents: players.map(p => ({ id: p.parentId, name: `ولي أمر ${p.name}`, phone: p.phone, email: p.email })), 
-    payments, 
-    setPayments: (val) => {
-      if (typeof val === 'function') {
-        setPayments(prev => {
-          const next = val(prev);
-          if (API_URL) {
-            const added = next.filter(p => !prev.find(x => x.id === p.id));
-            added.forEach(p => {
-              fetch(`${API_URL}/api/payments`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(p)
-              }).catch(console.error);
-            });
-          }
-          return next;
-        });
-      } else {
-        setPayments(val);
-      }
-    },
-    groups,
+    syncStatus,
+    groups, 
     setGroups: (val) => {
       if (typeof val === 'function') {
         setGroups(prev => {
           const next = val(prev);
+          setLastUpdate();
           if (API_URL) {
-            const added = next.filter(g => !prev.find(x => x.id === g.id));
-            const updated = next.filter(g => prev.find(x => x.id === g.id && JSON.stringify(x) !== JSON.stringify(g)));
-            [...added, ...updated].forEach(g => {
-              fetch(`${API_URL}/api/groups`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(g)
-              }).catch(console.error);
+            const addedOrChanged = next.filter(n => {
+              const old = prev.find(p => p.id === n.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(n);
             });
+            const deleted = prev.filter(p => !next.find(n => n.id === p.id));
+            addedOrChanged.forEach(i => syncWithAPI('groups', i));
+            deleted.forEach(i => syncWithAPI('groups', i, true));
           }
           return next;
         });
       } else {
         setGroups(val);
+        setLastUpdate();
+        if (API_URL && Array.isArray(val)) val.forEach(i => syncWithAPI('groups', i));
       }
     },
-    coaches,
+    coaches, 
     setCoaches: (val) => {
       if (typeof val === 'function') {
         setCoaches(prev => {
           const next = val(prev);
+          setLastUpdate();
           if (API_URL) {
-            const added = next.filter(c => !prev.find(x => x.id === c.id));
-            const updated = next.filter(c => prev.find(x => x.id === c.id && JSON.stringify(x) !== JSON.stringify(c)));
-            [...added, ...updated].forEach(c => {
-              fetch(`${API_URL}/api/coaches`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(c)
-              }).catch(console.error);
+            const addedOrChanged = next.filter(n => {
+              const old = prev.find(p => p.id === n.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(n);
             });
+            const deleted = prev.filter(p => !next.find(n => n.id === p.id));
+            addedOrChanged.forEach(i => syncWithAPI('coaches', i));
+            deleted.forEach(i => syncWithAPI('coaches', i, true));
           }
           return next;
         });
       } else {
         setCoaches(val);
+        setLastUpdate();
+        if (API_URL && Array.isArray(val)) val.forEach(i => syncWithAPI('coaches', i));
+      }
+    },
+    players, 
+    setPlayers: (val) => {
+      if (typeof val === 'function') {
+        setPlayers(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          if (API_URL) {
+            const addedOrChanged = next.filter(n => {
+              const old = prev.find(p => p.id === n.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(n);
+            });
+            const deleted = prev.filter(p => !next.find(n => n.id === p.id));
+            addedOrChanged.forEach(i => syncWithAPI('players', i));
+            deleted.forEach(i => syncWithAPI('players', i, true));
+          }
+          return next;
+        });
+      } else {
+        setPlayers(val);
+        setLastUpdate();
+        if (API_URL && Array.isArray(val)) val.forEach(i => syncWithAPI('players', i));
+      }
+    },
+    parents: (players || []).reduce((acc, p) => {
+      if (p && p.parentId && !acc.find(x => String(x.id) === String(p.parentId))) {
+        acc.push({ id: p.parentId, name: `ولي أمر ${p.name}`, phone: p.phone, email: p.email });
+      }
+      return acc;
+    }, []),
+    payments, 
+    setPayments: (val) => {
+      if (typeof val === 'function') {
+        setPayments(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          if (API_URL) {
+            const addedOrChanged = next.filter(n => {
+              const old = prev.find(p => p.id === n.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(n);
+            });
+            const deleted = prev.filter(p => !next.find(n => n.id === p.id));
+            addedOrChanged.forEach(i => syncWithAPI('payments', i));
+            deleted.forEach(i => syncWithAPI('payments', i, true));
+          }
+          return next;
+        });
+      } else {
+        setPayments(val);
+        setLastUpdate();
+        if (API_URL && Array.isArray(val)) val.forEach(i => syncWithAPI('payments', i));
       }
     },
     attendance, 
@@ -887,13 +899,17 @@ export default function App() {
       if (typeof val === 'function') {
         setAttendance(prev => {
           const next = val(prev);
+          setLastUpdate();
           if (API_URL) {
-            const changed = next.filter(a => !prev.find(x => x.id === a.id && JSON.stringify(x) === JSON.stringify(a)));
-            changed.forEach(a => {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
               fetch(`${API_URL}/api/attendance`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(a)
+                body: JSON.stringify(item)
               }).catch(console.error);
             });
           }
@@ -903,23 +919,85 @@ export default function App() {
         setAttendance(val);
       }
     },
-    coachesAttendance, setCoachesAttendance, 
-    evals, setEvals, 
-    messages, setMessages, 
+    coachesAttendance, 
+    setCoachesAttendance: (val) => {
+      if (typeof val === 'function') {
+        setCoachesAttendance(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          return next;
+        });
+      } else {
+        setCoachesAttendance(val);
+      }
+    },
+    evals, 
+    setEvals: (val) => {
+      if (typeof val === 'function') {
+        setEvals(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          if (API_URL) {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
+              fetch(`${API_URL}/api/evaluations`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setEvals(val);
+      }
+    },
+    messages, 
+    setMessages: (val) => {
+      if (typeof val === 'function') {
+        setMessages(prev => {
+          const next = val(prev);
+          setLastUpdate();
+          if (API_URL) {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
+              fetch(`${API_URL}/api/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setMessages(val);
+      }
+    },
     prices, setPrices, 
     trainings, 
     setTrainings: (val) => {
       if (typeof val === 'function') {
         setTrainings(prev => {
           const next = val(prev);
+          setLastUpdate();
           if (API_URL) {
-            const added = next.filter(t => !prev.find(x => x.id === t.id));
-            const updated = next.filter(t => prev.find(x => x.id === t.id && JSON.stringify(x) !== JSON.stringify(t)));
-            [...added, ...updated].forEach(t => {
+            const changed = next.filter(item => {
+              const old = prev.find(x => x.id === item.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(item);
+            });
+            changed.forEach(item => {
               fetch(`${API_URL}/api/trainings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(t)
+                body: JSON.stringify(item)
               }).catch(console.error);
             });
           }
@@ -929,9 +1007,15 @@ export default function App() {
         setTrainings(val);
       }
     },
-    t 
+    t,
+    forceRefresh: () => {
+      setLastUpdate(0); // Clear lock
+      // fetchData is internal to useEffect, but we can setLastUpdate to 0 
+      // and the next poll (or manual reload) will work.
+      localStorage.setItem('najd_last_update', '0');
+      window.location.reload(); 
+    }
   };
-
   return (
     <div style={{ fontFamily: "'Cairo',sans-serif", direction: "rtl", background: t.bg, minHeight: "100vh", color: t.text }}>
       <style>{`
