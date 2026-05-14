@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, Component } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 /* ═══ SETTINGS ════════════════════════════════════════ */
@@ -276,6 +276,25 @@ const PAY_TYPES = {
 const ATT_C = { حاضر: "#10B981", غائب: "#EF4444", بعذر: "#F59E0B" };
 const fmtMoney = n => Number(n).toLocaleString("ar-SA") + " ر.س";
 
+/* ═══ DATE UTILS ══════════════════════════════════════ */
+const AR_MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+const getCurMonth = () => {
+  const d = new Date();
+  return `${AR_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+};
+const CUR_MONTH = getCurMonth();
+
+const isMonthAfterJoin = (monthStr, joinDateStr) => {
+  if (!joinDateStr) return true;
+  const [mName, y] = monthStr.split(" ");
+  const mIdx = AR_MONTHS.indexOf(mName);
+  const monthDate = new Date(parseInt(y), mIdx, 1);
+  const joinDate = new Date(joinDateStr);
+  // Compare year and month
+  return monthDate.getFullYear() > joinDate.getFullYear() || 
+         (monthDate.getFullYear() === joinDate.getFullYear() && monthDate.getMonth() >= joinDate.getMonth());
+};
+
 /* ═══ DEFAULT PERMISSIONS ═════════════════════════════ */
 const DEFAULT_PERMS = { attendance: true, payments: true, evals: true, messages: true };
 
@@ -311,13 +330,13 @@ const INIT_PARENTS = [
 ];
 const INIT_PAYMENTS = [
   { id:"pay1", playerId:"p1", playerName:"محمد عبدالله الغامدي", coachId:"c2", coachName:"خالد مبارك العسيري", type:"subscription", month:"مارس 2026",  amount:350, date:"2026-03-05", note:"دفع نقدي" },
-  { id:"pay2", playerId:"p1", playerName:"محمد عبدالله الغامدي", coachId:"c2", coachName:"خالد مبارك العسيري", type:"subscription", month:"أبريل 2026", amount:350, date:"2026-04-03", note:"تحويل بنكي" },
+  { id:"pay2", playerId:"p1", playerName:"محمد عبدالله الغامدي", coachId:"c2", coachName:"خالد مبارك العسيري", type:"subscription", month:CUR_MONTH, amount:350, date:"2026-04-03", note:"تحويل بنكي" },
   { id:"pay3", playerId:"p1", playerName:"محمد عبدالله الغامدي", coachId:"c2", coachName:"خالد مبارك العسيري", type:"uniform",      month:"مارس 2026",  amount:180, date:"2026-03-10", note:"طقم تدريب" },
-  { id:"pay4", playerId:"p2", playerName:"فيصل سعد القحطاني",    coachId:"c1", coachName:"أحمد سالم البقمي",   type:"subscription", month:"أبريل 2026", amount:350, date:"2026-04-02", note:"دفع نقدي" },
-  { id:"pay5", playerId:"p2", playerName:"فيصل سعد القحطاني",    coachId:"c1", coachName:"أحمد سالم البقمي",   type:"bag",          month:"أبريل 2026", amount:95,  date:"2026-04-08", note:"شنطة رياضية" },
-  { id:"pay6", playerId:"p5", playerName:"بندر علي الدوسري",     coachId:"c3", coachName:"سعد الرشيدي",        type:"subscription", month:"أبريل 2026", amount:350, date:"2026-04-01", note:"تحويل بنكي" },
+  { id:"pay4", playerId:"p2", playerName:"فيصل سعد القحطاني",    coachId:"c1", coachName:"أحمد سالم البقمي",   type:"subscription", month:CUR_MONTH, amount:350, date:"2026-04-02", note:"دفع نقدي" },
+  { id:"pay5", playerId:"p2", playerName:"فيصل سعد القحطاني",    coachId:"c1", coachName:"أحمد سالم البقمي",   type:"bag",          month:CUR_MONTH, amount:95,  date:"2026-04-08", note:"شنطة رياضية" },
+  { id:"pay6", playerId:"p5", playerName:"بندر علي الدوسري",     coachId:"c3", coachName:"سعد الرشيدي",        type:"subscription", month:CUR_MONTH, amount:350, date:"2026-04-01", note:"تحويل بنكي" },
   { id:"pay7", playerId:"p5", playerName:"بندر علي الدوسري",     coachId:"c3", coachName:"سعد الرشيدي",        type:"jersey",       month:"مارس 2026",  amount:120, date:"2026-03-20", note:"قميص رسمي" },
-  { id:"pay8", playerId:"p6", playerName:"سلطان محمد العتيبي",   coachId:"c1", coachName:"أحمد سالم البقمي",   type:"subscription", month:"أبريل 2026", amount:350, date:"2026-04-04", note:"دفع نقدي" },
+  { id:"pay8", playerId:"p6", playerName:"سلطان محمد العتيبي",   coachId:"c1", coachName:"أحمد سالم البقمي",   type:"subscription", month:CUR_MONTH, amount:350, date:"2026-04-04", note:"دفع نقدي" },
 ];
 const INIT_ATTENDANCE = [
   { id:"att1", date:"2026-04-20", groupId:"g2", coachId:"c2", records:{ p1:"حاضر", p4:"غائب", p7:"حاضر" } },
@@ -479,27 +498,12 @@ function Avatar({ name, size = 36, color = "#A855F7" }) {
 }
 
 function Footer({ t }) {
-  // v0.6.5 - Deployment Fix
   const theme = t || THEMES.dark;
   return (
     <div style={{ textAlign: "center", padding: "20px", marginTop: "auto", borderTop: `1px solid ${theme.border}`, fontSize: 11, color: theme.textDim, opacity: 0.8 }}>
-      <div>
-        تم تطوير نظام إدارة الأكاديميات والنوادي الرياضية 
-        <a href="https://mohkam.netlify.app" target="_blank" rel="noopener noreferrer" style={{ color: "#7C49A8", fontWeight: 700, textDecoration: "none", marginRight: 4 }}>
-          " مُحْـكَـم (Mohkam) "
-        </a>
-      </div>
-      <div style={{ marginTop: 4 }}>
-        بواسطة 
-        <a href="https://past-series-479963.framer.app/" target="_blank" rel="noopener noreferrer" style={{ color: theme.text, fontWeight: 600, textDecoration: "none", marginLeft: 4 }}>
-          Badawi for Software Solutions and Marketing
-        </a>
-      </div>
-      <div style={{ marginTop: 4, direction: "ltr" }}>
-        <a href="https://wa.me/201091089983" target="_blank" rel="noopener noreferrer" style={{ color: "#10B981", textDecoration: "none", fontWeight: 700 }}>
-          +201091089983
-        </a>
-      </div>
+      <div>تم تطوير نظام إدارة الأكاديميات والنوادي الرياضية <span style={{ color: "#7C49A8", fontWeight: 700 }}>" مُحْـكَـم (Mohkam) "</span></div>
+      <div style={{ marginTop: 4 }}>بواسطة <span style={{ fontWeight: 600 }}>Badawi for Software Solutions and Marketing</span></div>
+      <div style={{ marginTop: 4, direction: "ltr" }}>+201091089983</div>
     </div>
   );
 }
@@ -678,7 +682,7 @@ function LoginPage({ onLogin, players = [], coaches = [], t }) {
 }
 
 /* ═══ SHELL ═══════════════════════════════════════════ */
-function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, onLogout, badge, user, t, children, actions, syncStatus }) {
+function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, onLogout, badge, user, t, children }) {
   const theme = t || THEMES.dark;
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: theme.bg }}>
@@ -691,11 +695,6 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {actions}
-          <div style={{ fontSize: 10, color: theme.textFaint, marginRight: 10 }}>v0.6.0</div>
-          {syncStatus === "syncing" && <div style={{ fontSize: 10, color: "#D8A435", marginRight: 10 }}>🔄 جاري الحفظ...</div>}
-          {syncStatus === "success" && <div style={{ fontSize: 10, color: "#10B981", marginRight: 10 }}>✅ تم الحفظ</div>}
-          {syncStatus === "error"   && <div style={{ fontSize: 10, color: "#EF4444", marginRight: 10 }}>⚠️ فشل التزامن</div>}
           {badge && <div style={{ background: `${color}18`, border: `1px solid ${color}30`, color, fontSize: 12, fontWeight: 700, padding: "5px 13px", borderRadius: 20 }}>{badge}</div>}
           <div style={{ fontSize: 12, color: theme.textDim, textAlign: "left" }}>{user?.name}</div>
           <button onClick={onLogout} style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#EF4444", borderRadius: 9, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>خروج</button>
@@ -720,113 +719,23 @@ function Shell({ title, subtitle, color, icon, tabs, activeTab, setActiveTab, on
 }
 
 /* ═══ ROOT APP ════════════════════════════════════════ */
-const safeParse = (key, fallback) => {
-  try {
-    const s = localStorage.getItem(key);
-    if (!s || s === "undefined") return fallback;
-    return JSON.parse(s);
-  } catch (e) {
-    console.error(`Error parsing ${key}:`, e);
-    return fallback;
-  }
-};
-
 export default function App() {
-  const [user, setUser]         = useState(() => safeParse('najd_logged_user', null));
-  const [attendance, setAttendance] = useState(() => safeParse('najd_attendance', []));
-  const [evals, setEvals] = useState(() => safeParse('najd_evals', []));
-  const [messages, setMessages] = useState(() => safeParse('najd_messages', []));
-  const [prices, setPrices] = useState(() => safeParse('najd_prices', PRICE_LIST));
-  const [trainings, setTrainings] = useState(() => safeParse('najd_trainings', []));
-  const [coachesAttendance, setCoachesAttendance] = useState(() => safeParse('najd_coachesAttendance', []));
+  const [user, setUser]         = useState(() => {
+    const saved = localStorage.getItem('najd_logged_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [attendance, setAttendance] = useState(() => JSON.parse(localStorage.getItem('najd_attendance') || '[]'));
+  const [evals, setEvals] = useState(() => JSON.parse(localStorage.getItem('najd_evals') || '[]'));
+  const [messages, setMessages] = useState(() => JSON.parse(localStorage.getItem('najd_messages') || '[]'));
+  const [prices, setPrices] = useState(() => JSON.parse(localStorage.getItem('najd_prices') || JSON.stringify(PRICE_LIST)));
+  const [trainings, setTrainings] = useState(() => JSON.parse(localStorage.getItem('najd_trainings') || '[]'));
+  const [coachesAttendance, setCoachesAttendance] = useState(() => JSON.parse(localStorage.getItem('najd_coachesAttendance') || '[]'));
 
-  const [groups, setGroups] = useState(() => safeParse('najd_groups', []));
-  const [coaches, setCoaches] = useState(() => safeParse('najd_coaches', []));
-  const [players, setPlayers] = useState(() => safeParse('najd_players', []));
-  const [payments, setPayments] = useState(() => safeParse('najd_payments', []));
+  const [groups, setGroups] = useState(() => JSON.parse(localStorage.getItem('najd_groups') || '[]'));
+  const [coaches, setCoaches] = useState(() => JSON.parse(localStorage.getItem('najd_coaches') || '[]'));
+  const [players, setPlayers] = useState(() => JSON.parse(localStorage.getItem('najd_players') || '[]'));
+  const [payments, setPayments] = useState(() => JSON.parse(localStorage.getItem('najd_payments') || '[]'));
   const [theme, setTheme] = useState(() => localStorage.getItem('najd_theme') || "dark");
-  const [globalError, setGlobalError] = useState(null);
-
-  const [syncStatus, setSyncStatus] = useState("idle");
-
-  // Sync lock helpers
-  const setLastUpdate = () => {
-    localStorage.setItem('najd_last_update', Date.now().toString());
-    setSyncStatus("success");
-    setTimeout(() => setSyncStatus("idle"), 3000);
-  };
-  const isRecentlyUpdated = () => {
-    const last = parseInt(localStorage.getItem('najd_last_update') || '0');
-    return (Date.now() - last < 30000); // 30s lock
-  };
-
-  // Smart merge: remote data never overwrites local changes within the lock window
-  const merge = (local, remote) => {
-    if (!remote || isRecentlyUpdated()) return local;
-    let res = [...local];
-    const remoteIds = new Set(remote.map(r => String(r.id)));
-    const localIds  = new Set(local.map(l => String(l.id)));
-    remote.forEach(r => {
-      const rid = String(r.id);
-      if (!localIds.has(rid)) {
-        res.push(r);
-      } else {
-        const idx = res.findIndex(l => String(l.id) === rid);
-        if (idx !== -1) res[idx] = r;
-      }
-    });
-    // Remove items deleted from server (not temporary local IDs)
-    res = res.filter(l => {
-      const lid = String(l.id);
-      if (/^[pgc]\d{10,}/.test(lid)) return true; // keep local temp items
-      return remoteIds.has(lid);
-    });
-    return res;
-  };
-
-  // Global debug logger
-  useEffect(() => {
-    console.log("App mounted - Debugging enabled");
-    window.onerror = (msg, url, line) => console.error(`Error: ${msg} at ${url}:${line}`);
-  }, []);
-
-  useEffect(() => {
-    const handleErr = (e) => setGlobalError({ message: e.message, stack: e.error?.stack });
-    window.addEventListener('error', handleErr);
-    return () => window.removeEventListener('error', handleErr);
-  }, []);
-
-
-  // Atomic API Sync Helper
-  const syncWithAPI = async (type, item, isDelete = false) => {
-    if (!API_URL) return;
-    setSyncStatus("syncing");
-    try {
-      const res = await fetch(`${API_URL}/api/${type}${isDelete ? '/delete' : ''}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(isDelete ? { id: item.id } : item)
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setSyncStatus("success");
-    } catch (e) { 
-      console.error(`🔴 Sync Error (${type}):`, e); 
-      setSyncStatus("error");
-    }
-  };
-
-  // Sync logged-in user if their data (like perms) changes in the main list
-  useEffect(() => {
-    if (user && user.role === 'coach') {
-      const coachData = coaches.find(c => c.userId === user.id || c.id === user.id);
-      if (coachData) {
-        const updatedUser = { ...coachData, role: 'coach' };
-        if (JSON.stringify(updatedUser) !== JSON.stringify(user)) {
-          setUser(updatedUser);
-        }
-      }
-    }
-  }, [coaches, user]);
 
   useEffect(() => {
     if (user) localStorage.setItem('najd_logged_user', JSON.stringify(user));
@@ -837,41 +746,37 @@ export default function App() {
   useEffect(() => {
     if (API_URL) {
       const fetchData = async () => {
-        if (isRecentlyUpdated()) return;
-        
         try {
           const res = await fetch(`${API_URL}/api/initial-data`);
-          if (!res.ok) throw new Error("Fetch failed");
           const data = await res.json();
-          
-          if (isRecentlyUpdated()) return; 
-
-          if (data.coaches)  setCoaches(prev => merge(prev, data.coaches));
-          if (data.payments) setPayments(prev => merge(prev, data.payments));
           if (data.players) {
+            // Auto-repair missing logins/data for display
             const repaired = data.players.map(p => {
               if (p.email && p.password) return p;
               const phone = p.phone || "0500000000";
-              return { ...p, email: p.email || `player_${phone}@najd.sa`, password: p.password || phone.slice(-4) };
+              return { 
+                ...p, 
+                email: p.email || `najd_${phone}@najd.sa`,
+                password: p.password || `najd_${phone.slice(-4)}`
+              };
             });
-            setPlayers(prev => merge(prev, repaired));
+            setPlayers(repaired);
           }
-          if (data.groups)   setGroups(prev => merge(prev, data.groups));
-          if (data.attendance) setAttendance(prev => merge(prev, data.attendance));
-          if (data.coachesAttendance) setCoachesAttendance(prev => merge(prev, data.coachesAttendance));
-          if (data.evals) setEvals(prev => merge(prev, data.evals));
-          if (data.messages) setMessages(prev => merge(prev, data.messages));
-          if (data.trainings) setTrainings(prev => merge(prev, data.trainings));
+          if (data.coaches) setCoaches(data.coaches);
+          if (data.groups) setGroups(data.groups);
+          if (data.payments) setPayments(data.payments);
+          if (data.attendance) setAttendance(data.attendance);
+          if (data.coachesAttendance) setCoachesAttendance(data.coachesAttendance);
+          if (data.evals) setEvals(data.evals);
+          if (data.messages) setMessages(data.messages);
+          if (data.trainings) setTrainings(data.trainings);
         } catch (e) {
           console.error("API Fetch Error:", e);
         }
       };
-      
       fetchData();
-      const interval = setInterval(fetchData, 10000); // Polling for everyone
-      return () => clearInterval(interval);
     }
-  }, [user?.role]);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('najd_players', JSON.stringify(players));
@@ -890,103 +795,91 @@ export default function App() {
   const t = THEMES[theme];
 
   const shared = { 
-    syncStatus,
-    groups, 
-    setGroups: (val) => {
-      if (typeof val === 'function') {
-        setGroups(prev => {
-          const next = val(prev);
-          setLastUpdate();
-          if (API_URL) {
-            const addedOrChanged = next.filter(n => {
-              const old = prev.find(p => p.id === n.id);
-              return !old || JSON.stringify(old) !== JSON.stringify(n);
-            });
-            const deleted = prev.filter(p => !next.find(n => n.id === p.id));
-            addedOrChanged.forEach(i => syncWithAPI('groups', i));
-            deleted.forEach(i => syncWithAPI('groups', i, true));
-          }
-          return next;
-        });
-      } else {
-        setGroups(val);
-        setLastUpdate();
-        if (API_URL && Array.isArray(val)) val.forEach(i => syncWithAPI('groups', i));
-      }
-    },
-    coaches, 
-    setCoaches: (val) => {
-      if (typeof val === 'function') {
-        setCoaches(prev => {
-          const next = val(prev);
-          setLastUpdate();
-          if (API_URL) {
-            const addedOrChanged = next.filter(n => {
-              const old = prev.find(p => p.id === n.id);
-              return !old || JSON.stringify(old) !== JSON.stringify(n);
-            });
-            const deleted = prev.filter(p => !next.find(n => n.id === p.id));
-            addedOrChanged.forEach(i => syncWithAPI('coaches', i));
-            deleted.forEach(i => syncWithAPI('coaches', i, true));
-          }
-          return next;
-        });
-      } else {
-        setCoaches(val);
-        setLastUpdate();
-        if (API_URL && Array.isArray(val)) val.forEach(i => syncWithAPI('coaches', i));
-      }
-    },
-    players, 
     setPlayers: (val) => {
       if (typeof val === 'function') {
         setPlayers(prev => {
           const next = val(prev);
-          setLastUpdate();
           if (API_URL) {
-            const addedOrChanged = next.filter(n => {
-              const old = prev.find(p => p.id === n.id);
-              return !old || JSON.stringify(old) !== JSON.stringify(n);
+            const added = next.filter(p => !prev.find(x => x.id === p.id));
+            const updated = next.filter(p => prev.find(x => x.id === p.id && JSON.stringify(x) !== JSON.stringify(p)));
+            [...added, ...updated].forEach(p => {
+              fetch(`${API_URL}/api/players`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(p)
+              }).catch(console.error);
             });
-            const deleted = prev.filter(p => !next.find(n => n.id === p.id));
-            addedOrChanged.forEach(i => syncWithAPI('players', i));
-            deleted.forEach(i => syncWithAPI('players', i, true));
           }
           return next;
         });
       } else {
         setPlayers(val);
-        setLastUpdate();
-        if (API_URL && Array.isArray(val)) val.forEach(i => syncWithAPI('players', i));
       }
     },
-    parents: (players || []).reduce((acc, p) => {
-      if (p && p.parentId && !acc.find(x => String(x.id) === String(p.parentId))) {
-        acc.push({ id: p.parentId, name: `ولي أمر ${p.name}`, phone: p.phone, email: p.email });
-      }
-      return acc;
-    }, []),
+    parents: players.map(p => ({ id: p.parentId, name: `ولي أمر ${p.name}`, phone: p.phone, email: p.email })), 
     payments, 
     setPayments: (val) => {
       if (typeof val === 'function') {
         setPayments(prev => {
           const next = val(prev);
-          setLastUpdate();
           if (API_URL) {
-            const addedOrChanged = next.filter(n => {
-              const old = prev.find(p => p.id === n.id);
-              return !old || JSON.stringify(old) !== JSON.stringify(n);
+            const added = next.filter(p => !prev.find(x => x.id === p.id));
+            added.forEach(p => {
+              fetch(`${API_URL}/api/payments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(p)
+              }).catch(console.error);
             });
-            const deleted = prev.filter(p => !next.find(n => n.id === p.id));
-            addedOrChanged.forEach(i => syncWithAPI('payments', i));
-            deleted.forEach(i => syncWithAPI('payments', i, true));
           }
           return next;
         });
       } else {
         setPayments(val);
-        setLastUpdate();
-        if (API_URL && Array.isArray(val)) val.forEach(i => syncWithAPI('payments', i));
+      }
+    },
+    groups,
+    setGroups: (val) => {
+      if (typeof val === 'function') {
+        setGroups(prev => {
+          const next = val(prev);
+          if (API_URL) {
+            const added = next.filter(g => !prev.find(x => x.id === g.id));
+            const updated = next.filter(g => prev.find(x => x.id === g.id && JSON.stringify(x) !== JSON.stringify(g)));
+            [...added, ...updated].forEach(g => {
+              fetch(`${API_URL}/api/groups`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(g)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setGroups(val);
+      }
+    },
+    coaches,
+    setCoaches: (val) => {
+      if (typeof val === 'function') {
+        setCoaches(prev => {
+          const next = val(prev);
+          if (API_URL) {
+            const added = next.filter(c => !prev.find(x => x.id === c.id));
+            const updated = next.filter(c => prev.find(x => x.id === c.id && JSON.stringify(x) !== JSON.stringify(c)));
+            [...added, ...updated].forEach(c => {
+              fetch(`${API_URL}/api/coaches`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(c)
+              }).catch(console.error);
+            });
+          }
+          return next;
+        });
+      } else {
+        setCoaches(val);
       }
     },
     attendance, 
@@ -994,17 +887,13 @@ export default function App() {
       if (typeof val === 'function') {
         setAttendance(prev => {
           const next = val(prev);
-          setLastUpdate();
           if (API_URL) {
-            const changed = next.filter(item => {
-              const old = prev.find(x => x.id === item.id);
-              return !old || JSON.stringify(old) !== JSON.stringify(item);
-            });
-            changed.forEach(item => {
+            const changed = next.filter(a => !prev.find(x => x.id === a.id && JSON.stringify(x) === JSON.stringify(a)));
+            changed.forEach(a => {
               fetch(`${API_URL}/api/attendance`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(item)
+                body: JSON.stringify(a)
               }).catch(console.error);
             });
           }
@@ -1014,85 +903,23 @@ export default function App() {
         setAttendance(val);
       }
     },
-    coachesAttendance, 
-    setCoachesAttendance: (val) => {
-      if (typeof val === 'function') {
-        setCoachesAttendance(prev => {
-          const next = val(prev);
-          setLastUpdate();
-          return next;
-        });
-      } else {
-        setCoachesAttendance(val);
-      }
-    },
-    evals, 
-    setEvals: (val) => {
-      if (typeof val === 'function') {
-        setEvals(prev => {
-          const next = val(prev);
-          setLastUpdate();
-          if (API_URL) {
-            const changed = next.filter(item => {
-              const old = prev.find(x => x.id === item.id);
-              return !old || JSON.stringify(old) !== JSON.stringify(item);
-            });
-            changed.forEach(item => {
-              fetch(`${API_URL}/api/evaluations`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(item)
-              }).catch(console.error);
-            });
-          }
-          return next;
-        });
-      } else {
-        setEvals(val);
-      }
-    },
-    messages, 
-    setMessages: (val) => {
-      if (typeof val === 'function') {
-        setMessages(prev => {
-          const next = val(prev);
-          setLastUpdate();
-          if (API_URL) {
-            const changed = next.filter(item => {
-              const old = prev.find(x => x.id === item.id);
-              return !old || JSON.stringify(old) !== JSON.stringify(item);
-            });
-            changed.forEach(item => {
-              fetch(`${API_URL}/api/messages`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(item)
-              }).catch(console.error);
-            });
-          }
-          return next;
-        });
-      } else {
-        setMessages(val);
-      }
-    },
+    coachesAttendance, setCoachesAttendance, 
+    evals, setEvals, 
+    messages, setMessages, 
     prices, setPrices, 
     trainings, 
     setTrainings: (val) => {
       if (typeof val === 'function') {
         setTrainings(prev => {
           const next = val(prev);
-          setLastUpdate();
           if (API_URL) {
-            const changed = next.filter(item => {
-              const old = prev.find(x => x.id === item.id);
-              return !old || JSON.stringify(old) !== JSON.stringify(item);
-            });
-            changed.forEach(item => {
+            const added = next.filter(t => !prev.find(x => x.id === t.id));
+            const updated = next.filter(t => prev.find(x => x.id === t.id && JSON.stringify(x) !== JSON.stringify(t)));
+            [...added, ...updated].forEach(t => {
               fetch(`${API_URL}/api/trainings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(item)
+                body: JSON.stringify(t)
               }).catch(console.error);
             });
           }
@@ -1102,110 +929,54 @@ export default function App() {
         setTrainings(val);
       }
     },
-    t,
-    forceRefresh: () => {
-      setLastUpdate(0); // Clear lock
-      // fetchData is internal to useEffect, but we can setLastUpdate to 0 
-      // and the next poll (or manual reload) will work.
-      localStorage.setItem('najd_last_update', '0');
-      window.location.reload(); 
-    }
+    t 
   };
 
-  const onLogout = () => setUser(null);
+  return (
+    <div style={{ fontFamily: "'Cairo',sans-serif", direction: "rtl", background: t.bg, minHeight: "100vh", color: t.text }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0}
+        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#2A2050;border-radius:8px}
+        input,select,textarea,button{font-family:'Cairo',sans-serif;direction:rtl}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+        @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+        .rh:hover{background:rgba(124,73,168,.06)!important}
+        .rhl:hover{background:rgba(0,0,0,.03)!important}
+        .s1{animation:fadeUp .4s .05s ease both;opacity:0}
+        .s2{animation:fadeUp .4s .12s ease both;opacity:0}
+        .s3{animation:fadeUp .4s .20s ease both;opacity:0}
+        .s4{animation:fadeUp .4s .28s ease both;opacity:0}
+        .s5{animation:fadeUp .4s .36s ease both;opacity:0}
+      `}</style>
 
-  if (globalError) return (
-    <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-      <h2 style={{ marginBottom: 20 }}>🛑 Fatal App Crash (v0.6.0)</h2>
-      <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
-        <b>Error:</b> {globalError.message}
-        <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{globalError.stack}</pre>
-      </div>
-      <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={{ marginTop: 20, padding: "10px 20px", background: "#FF5555", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>Clear Data & Reload</button>
+      {/* Theme toggle button — fixed */}
+      {user && (
+        <button onClick={() => setTheme(s => s === "dark" ? "light" : "dark")}
+          style={{ position: "fixed", bottom: 24, left: 24, zIndex: 9000, width: 46, height: 46, borderRadius: "50%", background: t.bg2, border: `1px solid ${t.border}`, cursor: "pointer", display: "grid", placeItems: "center", boxShadow: `0 4px 16px ${t.shadow}`, transition: "all .3s" }}>
+          <AnimIcon type={theme === "dark" ? "sun" : "moon"} size={20} color={theme === "dark" ? "#D8A435" : "#A855F7"} />
+        </button>
+      )}
+
+      {!user
+        ? <LoginPage onLogin={setUser} players={players} coaches={coaches} t={t} />
+        : user.role === "admin"
+          ? <AdminPortal  user={user} onLogout={() => setUser(null)} {...shared} />
+          : user.role === "coach"
+            ? <CoachPortal  user={user} onLogout={() => setUser(null)} {...shared} />
+            : <ParentPortal user={user} onLogout={() => setUser(null)} {...shared} loginUser={user} />
+      }
     </div>
   );
-
-  try {
-    return (
-      <div style={{ fontFamily: "'Cairo',sans-serif", direction: "rtl", background: t.bg, minHeight: "100vh", color: t.text }}>
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
-          *{box-sizing:border-box;margin:0;padding:0}
-          ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#2A2050;border-radius:8px}
-          input,select,textarea,button{font-family:'Cairo',sans-serif;direction:rtl}
-          @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-          @keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
-          @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-          @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-          @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-          .s1{animation:fadeUp .4s .05s ease both;opacity:0}
-          .s2{animation:fadeUp .4s .12s ease both;opacity:0}
-          .s3{animation:fadeUp .4s .20s ease both;opacity:0}
-          .s4{animation:fadeUp .4s .28s ease both;opacity:0}
-          .s5{animation:fadeUp .4s .36s ease both;opacity:0}
-        `}</style>
-  
-        {user && (
-          <button onClick={() => setTheme(s => s === "dark" ? "light" : "dark")}
-            style={{ position: "fixed", bottom: 24, left: 24, zIndex: 9000, width: 46, height: 46, borderRadius: "50%", background: t.bg2, border: `1px solid ${t.border}`, cursor: "pointer", display: "grid", placeItems: "center", boxShadow: `0 4px 16px ${t.shadow}`, transition: "all .3s" }}>
-            <AnimIcon type={theme === "dark" ? "sun" : "moon"} size={20} color={theme === "dark" ? "#D8A435" : "#A855F7"} />
-          </button>
-        )}
-  
-        {!user ? (
-          <LoginPage onLogin={setUser} players={players} coaches={coaches} t={t} />
-        ) : (
-          <div key={user.id}>
-            {user.role === "admin" && (
-              <ErrorBoundary name="AdminPortal"><AdminPortal user={user} onLogout={onLogout} {...shared} /></ErrorBoundary>
-            )}
-            {user.role === "coach" && (
-              <ErrorBoundary name="CoachPortal"><CoachPortal user={user} onLogout={onLogout} {...shared} /></ErrorBoundary>
-            )}
-            {user.role === "parent" && (
-              <ErrorBoundary name="ParentPortal"><ParentPortal user={user} onLogout={onLogout} {...shared} /></ErrorBoundary>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  } catch (err) {
-    return (
-      <div style={{ padding: 40, background: "#1A0505", color: "#FFBABA", minHeight: "100vh", fontFamily: "monospace", direction: "ltr", textAlign: "left" }}>
-        <h2 style={{ marginBottom: 20 }}>🛑 Render Crash (v0.6.0)</h2>
-        <div style={{ background: "#330000", padding: 20, borderRadius: 10, border: "1px solid #FF5555" }}>
-          <b>Error:</b> {err.message}
-          <pre style={{ marginTop: 15, fontSize: 12, opacity: .8, whiteSpace: "pre-wrap" }}>{err.stack}</pre>
-        </div>
-        <button onClick={() => window.location.reload()} style={{ marginTop: 20, padding: "10px 20px", background: "#FF5555", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", marginRight: 10 }}>Reload App</button>
-        <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={{ marginTop: 20, padding: "10px 20px", background: "transparent", color: "#FFBABA", border: "1px solid #FFBABA", borderRadius: 8, cursor: "pointer" }}>Clear Data & Reset</button>
-      </div>
-    );
-  }
-}
-
-/* ═══ ERROR BOUNDARY ══════════════════════════════════ */
-class ErrorBoundary extends Component {
-  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
-  static getDerivedStateFromError(error) { return { hasError: true, error }; }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ padding: 30, background: "#1A0505", color: "#FFBABA", borderRadius: 12, border: "1px solid #FF5555", margin: 20 }}>
-          <h3>❌ Error in {this.props.name}</h3>
-          <pre style={{ fontSize: 12, marginTop: 10, whiteSpace: "pre-wrap" }}>{this.state.error?.message}</pre>
-          <button onClick={() => window.location.reload()} style={{ marginTop: 15, padding: "8px 16px", background: "#FF5555", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}>Reload</button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
 }
 
 /* ══════════════════════════════════════════════════════════
    ADMIN PORTAL
 ══════════════════════════════════════════════════════════ */
-function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, players, setPlayers, parents, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, messages, setMessages, prices, setPrices, trainings, setTrainings, t, forceRefresh, syncStatus }) {
+function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, players, setPlayers, parents, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, messages, setMessages, prices, setPrices, trainings, setTrainings, t }) {
   const [tab, setTab] = useState("overview");
   const tabs = [
     { id: "overview",     icon: "dashboard",    label: "نظرة عامة"   },
@@ -1219,14 +990,13 @@ function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, p
     { id: "messages",     icon: "messages",     label: "الرسائل",      badge: messages.filter(m => m.to === "admin" && !m.read).length || undefined },
   ];
   return (
-    <Shell title="لوحة الإدارة" subtitle="نادي نجد الرياض" color="#7C49A8" icon="dashboard" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge="مدير عام" user={user} t={t} syncStatus={syncStatus}
-      actions={<Btn variant="secondary" onClick={forceRefresh} style={{ padding: "6px 12px", fontSize: 11 }}>🔄 تحديث البيانات</Btn>}>
-      {tab === "overview"  && <AdminOverview players={players} coaches={coaches} groups={groups} payments={payments} attendance={attendance} t={t} />}
+    <Shell title="لوحة الإدارة" subtitle="نادي نجد الرياض" color="#7C49A8" icon="dashboard" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge="مدير عام" user={user} t={t}>
+      {tab === "overview"  && <AdminOverview players={players} coaches={coaches} groups={groups} payments={payments} t={t} />}
       {tab === "teams"     && <AdminTeams groups={groups} setGroups={setGroups} coaches={coaches} players={players} t={t} />}
       {tab === "attendance" && <AdminAttendance groups={groups} players={players} coaches={coaches} attendance={attendance} setAttendance={setAttendance} coachesAttendance={coachesAttendance} setCoachesAttendance={setCoachesAttendance} t={t} />}
       {tab === "coaches"   && <AdminCoaches coaches={coaches} setCoaches={setCoaches} groups={groups} players={players} payments={payments} t={t} />}
-      {tab === "players"   && <AdminPlayers players={players} setPlayers={setPlayers} groups={groups} parents={parents} evals={evals} coaches={coaches} t={t} />}
-      {tab === "payments"  && <AdminPayments payments={payments} setPayments={setPayments} players={players} coaches={coaches} prices={prices} messages={messages} setMessages={setMessages} t={t} />}
+      {tab === "players"   && <AdminPlayers players={players} setPlayers={setPlayers} groups={groups} parents={parents} t={t} />}
+      {tab === "payments"  && <AdminPayments payments={payments} setPayments={setPayments} players={players} coaches={coaches} prices={prices} t={t} />}
       {tab === "prices"    && <AdminPrices prices={prices} setPrices={setPrices} t={t} />}
       {tab === "schedule"  && <AdminTrainings trainings={trainings} setTrainings={setTrainings} groups={groups} coaches={coaches} t={t} />}
       {tab === "messages"  && <Messaging messages={messages} setMessages={setMessages} meId="admin" meName="الإدارة" coaches={coaches} parents={parents} t={t} />}
@@ -1235,73 +1005,19 @@ function AdminPortal({ user, onLogout, groups, setGroups, coaches, setCoaches, p
 }
 
 /* ── Admin Overview ─────────────────────────────────── */
-function AdminOverview({ players, coaches, groups, payments, attendance, t }) {
-  const total   = payments.reduce((a, p) => a + (p.amount || 0), 0);
-  // Current month label
-  const now = new Date();
-  const monthNames = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
-  const curMonth = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
-  const month   = payments.filter(p => p.month === curMonth).reduce((a, p) => a + (p.amount || 0), 0);
+function AdminOverview({ players, coaches, groups, payments, t }) {
+  const total   = payments.reduce((a, p) => a + p.amount, 0);
+  const month   = payments.filter(p => p.month === CUR_MONTH).reduce((a, p) => a + p.amount, 0);
   const active  = players.filter(p => p.status === "نشط").length;
-  const unpaid  = players.filter(p => !payments.some(pay => pay.playerId === p.id && pay.type === "subscription" && pay.month === curMonth)).length;
-  const byType  = Object.entries(PAY_TYPES).map(([k, v]) => ({ ...v, k, total: payments.filter(p => p.type === k).reduce((a, p) => a + (p.amount || 0), 0), count: payments.filter(p => p.type === k).length }));
-
-  // Real revenue chart data: last 7 months from payments
-  const revData = (() => {
-    const months = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const label = `${monthNames[d.getMonth()]}`;
-      const income = payments
-        .filter(p => p.month === `${monthNames[d.getMonth()]} ${d.getFullYear()}`)
-        .reduce((a, p) => a + (p.amount || 0), 0);
-      months.push({ month: label, income, expenses: 0 });
-    }
-    return months;
-  })();
-
-  // Real positions distribution from players
-  const posMap = {};
-  players.forEach(p => { if (p.position) posMap[p.position] = (posMap[p.position] || 0) + 1; });
-  const posColors = ["#EF4444","#A855F7","#3B82F6","#10B981","#F59E0B","#06B6D4","#EC4899"];
-  const posData = Object.entries(posMap).map(([name, value], i) => ({ name, value, color: posColors[i % posColors.length] }));
-  if (posData.length === 0) posData.push(...[
-    { name:"مهاجم", value:0, color:"#EF4444" }, { name:"وسط", value:0, color:"#A855F7" },
-    { name:"مدافع", value:0, color:"#3B82F6" }
-  ]);
-
-  // Real weekly attendance trend from attendance records
-  const attTrend = (() => {
-    const weeks = [];
-    for (let i = 5; i >= 0; i--) {
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - (i * 7));
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 7);
-      const label = `أ${6 - i}`;
-      let present = 0, absent = 0, excused = 0;
-      attendance
-        .filter(a => { const d = new Date(a.date); return d >= weekStart && d < weekEnd; })
-        .forEach(a => {
-          if (a.records && typeof a.records === 'object') {
-            Object.values(a.records).forEach(v => {
-              if (v === 'حاضر') present++;
-              else if (v === 'غائب') absent++;
-              else if (v === 'بعذر') excused++;
-            });
-          }
-        });
-      weeks.push({ week: label, 'حاضر': present, 'غائب': absent, 'بعذر': excused });
-    }
-    return weeks;
-  })();
+  const unpaid  = players.filter(p => !payments.some(pay => pay.playerId === p.id && pay.type === "subscription" && pay.month === CUR_MONTH)).length;
+  const byType  = Object.entries(PAY_TYPES).map(([k, v]) => ({ ...v, k, total: payments.filter(p => p.type === k).reduce((a, p) => a + p.amount, 0), count: payments.filter(p => p.type === k).length }));
 
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 20 }} className="s1">
         <StatCard label="إجمالي اللاعبين"    counter={players.length} icon="⚽" color="#7C49A8" sub={`${active} نشط`} t={t}/>
-        <StatCard label="إيرادات أبريل"       counter={month}          icon="💰" color="#10B981" value={fmtMoney(month)} t={t}/>
-        <StatCard label="اشتراكات متأخرة"    counter={unpaid}         icon="⚠️" color="#EF4444" sub="أبريل 2026" t={t}/>
+        <StatCard label={`إيرادات ${CUR_MONTH.split(" ")[0]}`} counter={month}          icon="💰" color="#10B981" value={fmtMoney(month)} t={t}/>
+        <StatCard label="اشتراكات متأخرة"    counter={unpaid}         icon="⚠️" color="#EF4444" sub={CUR_MONTH} t={t}/>
         <StatCard label="إجمالي الإيرادات"   counter={total}          icon="📈" color="#D8A435" value={fmtMoney(total)} t={t}/>
       </div>
 
@@ -1310,7 +1026,7 @@ function AdminOverview({ players, coaches, groups, payments, attendance, t }) {
           <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 4 }}>💰 الإيرادات مقابل المصروفات</div>
           <div style={{ fontSize: 11, color: t.textDim, marginBottom: 14 }}>آخر 7 أشهر</div>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={revData}>
+            <AreaChart data={REV_DATA}>
               <defs>
                 <linearGradient id="gInc" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#7C49A8" stopOpacity={.3}/><stop offset="95%" stopColor="#7C49A8" stopOpacity={0}/></linearGradient>
                 <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#EF4444" stopOpacity={.2}/><stop offset="95%" stopColor="#EF4444" stopOpacity={0}/></linearGradient>
@@ -1329,14 +1045,14 @@ function AdminOverview({ players, coaches, groups, payments, attendance, t }) {
           <div style={{ fontSize: 11, color: t.textDim, marginBottom: 10 }}>{players.length} لاعب</div>
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
-              <Pie data={posData} cx="50%" cy="50%" innerRadius={40} outerRadius={68} paddingAngle={4} dataKey="value" animationDuration={1200}>
-                {posData.map((e, i) => <Cell key={i} fill={e.color} />)}
+              <Pie data={POS_DATA} cx="50%" cy="50%" innerRadius={40} outerRadius={68} paddingAngle={4} dataKey="value" animationDuration={1200}>
+                {POS_DATA.map((e, i) => <Cell key={i} fill={e.color} />)}
               </Pie>
               <Tooltip content={<ArabicTooltip />}/>
             </PieChart>
           </ResponsiveContainer>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 10px", marginTop: 6 }}>
-            {posData.map((d, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: t.textDim }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: d.color }}/>{d.name} <span style={{ color: d.color, fontWeight: 700 }}>{d.value}</span></div>)}
+            {POS_DATA.map((d, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: t.textDim }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: d.color }}/>{d.name} <span style={{ color: d.color, fontWeight: 700 }}>{d.value}</span></div>)}
           </div>
         </Card>
       </div>
@@ -1346,7 +1062,7 @@ function AdminOverview({ players, coaches, groups, payments, attendance, t }) {
           <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 4 }}>📋 الحضور الأسبوعي</div>
           <div style={{ fontSize: 11, color: t.textDim, marginBottom: 14 }}>آخر 6 أسابيع</div>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={attTrend} barSize={12} barCategoryGap="30%">
+            <BarChart data={ATT_TREND} barSize={12} barCategoryGap="30%">
               <CartesianGrid strokeDasharray="3 3" stroke={t.border} vertical={false}/>
               <XAxis dataKey="week" tick={{ fill: t.textDim, fontSize: 10 }} axisLine={false} tickLine={false}/>
               <YAxis tick={{ fill: t.textDim, fontSize: 10 }} axisLine={false} tickLine={false}/>
@@ -1391,32 +1107,16 @@ function AdminOverview({ players, coaches, groups, payments, attendance, t }) {
           })}
         </Card>
         <Card t={t} style={{ padding: 22 }}>
-          {(() => {
-            const monthsArr = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
-            const curMonth = monthsArr[new Date().getMonth()];
-            const unpaid = players.filter(p => 
-              p.status === "نشط" && 
-              !payments.some(pay => String(pay.playerId) === String(p.id) && pay.type === "subscription" && pay.month.includes(curMonth))
-            );
-            return (
-              <>
-                <div style={{ fontWeight: 700, fontSize: 13, color: "#EF4444", marginBottom: 14 }}>⚠️ لم يدفعوا اشتراك {curMonth}</div>
-                {unpaid.length === 0 ? (
-                  <div style={{ textAlign: "center", color: t.textDim, fontSize: 11, padding: 20 }}>✅ الكل دفع اشتراك {curMonth}</div>
-                ) : (
-                  unpaid.map(p => (
-                    <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: `1px solid ${t.border}` }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                        <Avatar name={p.name} size={28} color="#EF4444"/>
-                        <div><div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{p.name}</div><div style={{ fontSize: 10, color: t.textDim }}>{groups.find(g => g.id === p.groupId)?.name}</div></div>
-                      </div>
-                      <Chip text="متأخر" color="#EF4444"/>
-                    </div>
-                  ))
-                )}
-              </>
-            );
-          })()}
+          <div style={{ fontWeight: 700, fontSize: 13, color: "#EF4444", marginBottom: 14 }}>⚠️ لم يدفعوا اشتراك {CUR_MONTH.split(" ")[0]}</div>
+          {players.filter(p => isMonthAfterJoin(CUR_MONTH, p.joinDate) && !payments.some(pay => pay.playerId === p.id && pay.type === "subscription" && pay.month === CUR_MONTH)).map(p => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: `1px solid ${t.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                <Avatar name={p.name} size={28} color="#EF4444"/>
+                <div><div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{p.name}</div><div style={{ fontSize: 10, color: t.textDim }}>{groups.find(g => g.id === p.groupId)?.name}</div></div>
+              </div>
+              <Chip text="متأخر" color="#EF4444"/>
+            </div>
+          ))}
         </Card>
       </div>
     </div>
@@ -1789,7 +1489,7 @@ function AdminCoaches({ coaches, setCoaches, groups, players, payments, t }) {
 }
 
 /* ── Admin Players ──────────────────────────────────── */
-function AdminPlayers({ players, setPlayers, groups, parents, evals = [], coaches, t }) {
+function AdminPlayers({ players, setPlayers, groups, parents, t }) {
   const [sel, setSel]   = useState(null);
   const [modal, setModal] = useState(false);
   const [search, setSearch] = useState("");
@@ -1826,74 +1526,20 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals = [], coache
             </Btn>
           </Card>
           <Card t={t} style={{ padding: 22 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 16 }}>📊 المهارات والتقييم الأخير</div>
-            
-            {(() => {
-              const playerEvals = (evals || []).filter(e => String(e.playerId) == String(p.id));
-              const lastEval = playerEvals.slice(-1)[0];
-              if (!lastEval) return (
-                <div style={{ background: "rgba(124,73,168,.05)", padding: 16, borderRadius: 12, marginBottom: 20, border: `1px dashed ${t.border}`, textAlign: "center" }}>
-                  <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
-                  <div style={{ fontSize: 12, color: t.textDim }}>لا توجد تقييمات مسجلة لهذا اللاعب حتى الآن.</div>
-                </div>
-              );
-              const evaluatingCoach = coaches.find(c => c.id == lastEval.coachId || c.userId == lastEval.coachId);
-              return (
-                <div style={{ background: "linear-gradient(135deg, rgba(124,73,168,.1), rgba(6,182,212,.05))", padding: 18, borderRadius: 14, marginBottom: 20, border: `1px solid ${t.purple}33` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <div style={{ fontWeight: 800, fontSize: 13, color: t.purple }}>📝 تقييم المدرب الأخير</div>
-                    <Chip text={lastEval.date} color={t.textDim} size={9}/>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "8px 12px", background: "rgba(255,255,255,.05)", borderRadius: 10 }}>
-                    <Avatar name={evaluatingCoach?.name || lastEval.coachName || "مدرب"} size={24} color="#7C49A8"/>
-                    <div style={{ fontSize: 12, color: t.text }}>بواسطة: <span style={{ fontWeight: 800, color: "#06B6D4" }}>{evaluatingCoach?.name || lastEval.coachName || "مدرب النادي"}</span></div>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
-                    {[["سرعة", lastEval.speed, "#06B6D4"], ["تقنية", lastEval.technique, "#7C49A8"], ["فريق", lastEval.teamwork, "#F59E0B"]].map(([l, v, c]) => (
-                      <div key={l} style={{ textAlign: "center", padding: "8px 4px", background: `${c}12`, borderRadius: 8, border: `1px solid ${c}25` }}>
-                        <div style={{ fontSize: 9, color: t.textDim, marginBottom: 2 }}>{l}</div>
-                        <div style={{ fontSize: 14, fontWeight: 900, color: c }}>{v}</div>
-                      </div>
-                    ))}
-                  </div>
-                  {lastEval.note && (
-                    <div style={{ fontSize: 11, color: t.textDim, fontStyle: "italic", lineHeight: 1.5, borderTop: `1px solid ${t.border}`, paddingTop: 10 }}>
-                      "{lastEval.note}"
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {(() => {
-              const hasEval = (evals||[]).some(e => String(e.playerId) === String(p.id));
-              const latestEval = (evals||[]).filter(e => String(e.playerId) === String(p.id)).slice(-1)[0];
-              const evalScore = latestEval ? Math.round((latestEval.speed + latestEval.technique + latestEval.teamwork) / 3) : null;
-              if (!hasEval) return (
-                <div style={{ textAlign:'center', padding:'30px 0', color: t.textFaint }}>
-                  <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: t.textDim }}>لم يتم التقييم بعد</div>
-                  <div style={{ fontSize: 11, marginTop: 6 }}>سيظهر التقييم هنا بعد أن يسجّل المدرب أول تقييم للاعب.</div>
-                </div>
-              );
-              return (
-                <>
-                  <SkillBar label="السرعة"         val={latestEval.speed}     color="#06B6D4" t={t}/>
-                  <SkillBar label="التحمل"         val={latestEval.stamina ?? p.stamina}   color="#10B981" t={t}/>
-                  <SkillBar label="التقنية"        val={latestEval.technique} color="#7C49A8" t={t}/>
-                  <SkillBar label="العمل الجماعي" val={latestEval.teamwork}  color="#F59E0B" t={t}/>
-                  <div style={{ marginTop: 18 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
-                      <span style={{ color: t.textDim }}>التقييم الكلي</span>
-                      <span style={{ fontWeight: 800, color: evalScore > 80 ? "#10B981" : evalScore > 60 ? "#F59E0B" : "#EF4444" }}>{evalScore}/100</span>
-                    </div>
-                    <div style={{ height: 8, background: t.border, borderRadius: 4 }}>
-                      <div style={{ height: "100%", borderRadius: 4, background: `linear-gradient(90deg,${evalScore > 80 ? "#10B981" : evalScore > 60 ? "#F59E0B" : "#EF4444"},transparent)`, width: `${evalScore}%` }}/>
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
+            <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 16 }}>📊 المهارات</div>
+            <SkillBar label="السرعة"         val={p.speed}     color="#06B6D4" t={t}/>
+            <SkillBar label="التحمل"         val={p.stamina}   color="#10B981" t={t}/>
+            <SkillBar label="التقنية"        val={p.technique} color="#7C49A8" t={t}/>
+            <SkillBar label="العمل الجماعي" val={p.teamwork}  color="#F59E0B" t={t}/>
+            <div style={{ marginTop: 18 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+                <span style={{ color: t.textDim }}>التقييم الكلي</span>
+                <span style={{ fontWeight: 800, color: p.score > 80 ? "#10B981" : p.score > 60 ? "#F59E0B" : "#EF4444" }}>{p.score}/100</span>
+              </div>
+              <div style={{ height: 8, background: t.border, borderRadius: 4 }}>
+                <div style={{ height: "100%", borderRadius: 4, background: `linear-gradient(90deg,${p.score > 80 ? "#10B981" : p.score > 60 ? "#F59E0B" : "#EF4444"},transparent)`, width: `${p.score}%` }}/>
+              </div>
+            </div>
           </Card>
         </div>
         {modal && (
@@ -1934,7 +1580,7 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals = [], coache
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: t.bg, borderBottom: `1px solid ${t.border}` }}>
-              {["اللاعب", "الفريق", "المركز", "الإيميل", "الحالة", "آخر تقييم", "الدرجة", ""].map(h => (
+              {["اللاعب", "الفريق", "المركز", "الإيميل", "الحالة", "التقييم", ""].map(h => (
                 <th key={h} style={{ padding: "12px 14px", textAlign: "right", fontSize: 10, color: t.textDim, fontWeight: 700 }}>{h}</th>
               ))}
             </tr>
@@ -1954,29 +1600,7 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals = [], coache
                   <td style={{ padding: "11px 14px" }}><Chip text={p.position} color="#06B6D4"/></td>
                   <td style={{ padding: "11px 14px", fontSize: 11, color: t.textDim }}>{p.email || "—"}</td>
                   <td style={{ padding: "11px 14px" }}><Chip text={p.status} color={p.status === "نشط" ? "#10B981" : "#EF4444"}/></td>
-                  <td style={{ padding: "11px 14px" }}>
-                    {(() => {
-                      const playerEvals = (evals || []).filter(e => String(e.playerId) == String(p.id));
-                      const last = playerEvals.slice(-1)[0];
-                      if (!last) return <span style={{ fontSize: 10, color: t.textFaint }}>—</span>;
-                      const coach = coaches.find(c => c.id == last.coachId || c.userId == last.coachId);
-                      return (
-                        <div style={{ fontSize: 10, lineHeight: 1.2 }}>
-                          <div style={{ fontWeight: 700, color: "#06B6D4" }}>{coach?.name?.split(" ")[0] || last.coachName?.split(" ")[0] || "مدرب"}</div>
-                          <div style={{ color: t.textDim }}>{last.date}</div>
-                        </div>
-                      );
-                    })()}
-                  </td>
-                  <td style={{ padding: "11px 14px" }}>
-                    {(() => {
-                      const playerEvals = (evals || []).filter(e => String(e.playerId) == String(p.id));
-                      const last = playerEvals.slice(-1)[0];
-                      if (!last) return <span style={{ fontSize: 11, color: t.textFaint }}>—</span>;
-                      const evalScore = Math.round((last.speed + last.technique + last.teamwork) / 3);
-                      return <span style={{ fontSize: 13, fontWeight: 800, color: evalScore > 80 ? "#10B981" : evalScore > 60 ? "#F59E0B" : "#EF4444" }}>{evalScore}</span>;
-                    })()}
-                  </td>
+                  <td style={{ padding: "11px 14px", fontSize: 13, fontWeight: 800, color: p.score > 80 ? "#10B981" : p.score > 60 ? "#F59E0B" : "#EF4444" }}>{p.score}</td>
                   <td style={{ padding: "11px 14px" }}>
                     <button onClick={e => { e.stopPropagation(); setPlayers(ps => ps.filter(x => x.id !== p.id)); }}
                       style={{ width: 26, height: 26, borderRadius: 7, border: "none", background: "rgba(239,68,68,.1)", color: "#EF4444", cursor: "pointer", display: "grid", placeItems: "center" }}>
@@ -2007,8 +1631,8 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals = [], coache
           <div style={{ display: "flex", gap: 10 }}>
             <Btn onClick={() => { 
               const phone = form.phone || Date.now().toString();
-              const generatedEmail = `player_${phone}@najd.sa`;
-              const generatedPass  = phone.slice(-4);
+              const generatedEmail = `najd_${phone}@najd.sa`;
+              const generatedPass  = `najd_${phone.slice(-4)}`;
               setPlayers(ps => [...ps, { ...form, id: `p${Date.now()}`, email: generatedEmail, password: generatedPass, score: +form.score || 80, attendancePct: 90, goals: 0, assists: 0, joinDate: new Date().toISOString().split("T")[0] }]); 
               setModal(null); 
             }} style={{ flex: 1 }}>✅ إضافة وتوليد بيانات الدخول</Btn>
@@ -2020,215 +1644,17 @@ function AdminPlayers({ players, setPlayers, groups, parents, evals = [], coache
   );
 }
 
-/* ── Invoice Modal ──────────────────────────────────── */
-function InvoiceModal({ payment, allPayments, player, onClose, onSendMessage, t }) {
-  const invoiceNum = `INV-${String(Date.now()).slice(-8)}`;
-  const sameMonthPays = allPayments.filter(p =>
-    String(p.playerId) === String(payment.playerId) && p.month === payment.month
-  );
-  const totalAmount = sameMonthPays.reduce((a, p) => a + (p.amount || 0), 0);
-  const dateObj = new Date(payment.date);
-  const monthNames = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
-  const dateStr = `${dateObj.getDate()} ${monthNames[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
-
-  const terms = [
-    "لا يحق للمشترك المطالبة بأي مبلغ في حال أراد عدم الاكمال في التدريبات لأي ظرف كان.",
-    "في حال اكتشفت الأكاديمية أي مشكلة مرضية أو سلوكية على المشترك لم يتم الإفصاح عنها يحق للأكاديمية استبعاد المشترك بدون الرجوع لولي الأمر.",
-    "المشترك هو المسؤول عن نظافة اللبس المخصص للأكاديمية ولا يسمح له بدخول أي تمرين ألا به ولا يسمح له بمشاركة المشترك في أي نشاط في حال كان اللبس غير لائق.",
-    "يتدرب المشترك ١٢ تدريب شهرياً يكون من بداية تاريخ أول تدريب.",
-    "الأكاديمية حلقة وصل بين المشترك وصاحب الباص والأمر هو المسؤول عن إرسال الابن واستقباله بعد الانتهاء من التدريب.",
-    "الأكاديمية مسؤوليه كامله عن استقبال المشتركين وتوديعهم ومتابعة حركة الباص."
-  ];
-
-  const printStylesheet = `
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Cairo',Arial,sans-serif;direction:rtl;background:#fff;color:#1a1a2e;padding:32px;max-width:740px;margin:0 auto}
-    .inv-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:18px;border-bottom:3px solid #7C49A8;margin-bottom:20px}
-    .inv-logo{width:80px;height:80px;object-fit:contain}
-    .inv-club-info{text-align:center;flex:1}
-    .inv-club-name{font-size:22px;font-weight:900;color:#7C49A8;letter-spacing:-.5px}
-    .inv-club-sub{font-size:12px;color:#888;margin-top:2px}
-    .inv-num{text-align:left;font-size:12px;color:#555}
-    .inv-num strong{display:block;font-size:14px;color:#7C49A8;font-weight:800}
-    .inv-title-bar{background:linear-gradient(135deg,#7C49A8,#A855F7);color:#fff;text-align:center;padding:10px;font-size:18px;font-weight:900;border-radius:8px;margin-bottom:18px;letter-spacing:.5px}
-    .inv-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;background:#f8f6ff;border-radius:8px;padding:14px 18px;margin-bottom:18px;border:1px solid #e8e0ff}
-    .inv-info-item{font-size:13px}
-    .inv-info-label{color:#888;font-size:11px;display:block;margin-bottom:1px}
-    .inv-info-value{font-weight:700;color:#1a1a2e}
-    table{width:100%;border-collapse:collapse;margin-bottom:16px}
-    thead tr{background:#7C49A8;color:#fff}
-    thead th{padding:10px 14px;text-align:right;font-size:13px;font-weight:700}
-    tbody tr:nth-child(even){background:#f8f6ff}
-    tbody td{padding:10px 14px;font-size:13px;border-bottom:1px solid #eee}
-    .amt-cell{text-align:left;font-weight:800;color:#7C49A8}
-    .inv-total{background:linear-gradient(135deg,#7C49A8,#A855F7);color:#fff;border-radius:8px;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;font-size:16px;margin-bottom:20px}
-    .inv-total-label{font-weight:700}
-    .inv-total-amt{font-size:22px;font-weight:900;color:#D8A435}
-    .terms-box{background:#fffbf0;border:1px solid #D8A435;border-radius:8px;padding:14px 18px;margin-bottom:20px}
-    .terms-title{font-size:13px;font-weight:900;color:#D8A435;margin-bottom:8px}
-    .terms-list{padding-right:18px}
-    .terms-list li{font-size:11px;color:#555;margin-bottom:5px;line-height:1.6}
-    .sig-area{display:flex;justify-content:flex-end;margin-top:30px;padding-top:16px;border-top:1px dashed #ccc}
-    .sig-box{text-align:center;width:180px}
-    .sig-label{font-size:12px;color:#555;font-weight:700;margin-bottom:40px}
-    .sig-line{border-top:1px solid #666;padding-top:6px;font-size:11px;color:#888}
-    .inv-footer{text-align:center;margin-top:20px;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:12px}
-    @media print{body{padding:16px}@page{margin:10mm}}
-  `;
-
-  const buildInvoiceHTML = () => `
-    <div class="inv-header">
-      <img class="inv-logo" src="/logo.png" alt="نادي نجد" onerror="this.style.display='none'"/>
-      <div class="inv-club-info">
-        <div class="inv-club-name">نادي نجد الرياض</div>
-        <div class="inv-club-sub">أكاديمية كرة القدم</div>
-      </div>
-      <div class="inv-num">
-        <strong>${invoiceNum}</strong>
-        رقم الفاتورة
-      </div>
-    </div>
-    <div class="inv-title-bar">فاتورة مشترك</div>
-    <div class="inv-info-grid">
-      <div class="inv-info-item"><span class="inv-info-label">اسم اللاعب</span><span class="inv-info-value">${player?.name || '—'}</span></div>
-      <div class="inv-info-item"><span class="inv-info-label">الشهر</span><span class="inv-info-value">${payment.month}</span></div>
-      <div class="inv-info-item"><span class="inv-info-label">تاريخ الإصدار</span><span class="inv-info-value">${dateStr}</span></div>
-      ${payment.note ? `<div class="inv-info-item"><span class="inv-info-label">ملاحظات</span><span class="inv-info-value">${payment.note}</span></div>` : ''}
-    </div>
-    <table>
-      <thead><tr><th>#</th><th>البند</th><th>التفاصيل</th><th>المبلغ</th></tr></thead>
-      <tbody>
-        ${sameMonthPays.map((p, i) => `
-          <tr>
-            <td>${i + 1}</td>
-            <td>${PAY_TYPES[p.type]?.icon || ''} ${PAY_TYPES[p.type]?.label || p.type}</td>
-            <td>${p.month}</td>
-            <td class="amt-cell">${fmtMoney(p.amount)}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-    <div class="inv-total">
-      <span class="inv-total-label">إجمالي مبلغ الاشتراك المستحق</span>
-      <span class="inv-total-amt">${fmtMoney(totalAmount)}</span>
-    </div>
-    <div class="terms-box">
-      <div class="terms-title">📋 الشروط والأحكام</div>
-      <ol class="terms-list">
-        ${terms.map(term => `<li>${term}</li>`).join('')}
-      </ol>
-    </div>
-    <div class="sig-area">
-      <div class="sig-box">
-        <div class="sig-label">توقيع ولي الأمر</div>
-        <div class="sig-line">الاسم والتوقيع</div>
-      </div>
-    </div>
-    <div class="inv-footer">نادي نجد الرياض · أكاديمية كرة القدم · تم إنشاء هذه الفاتورة إلكترونياً</div>
-  `;
-
-  const printInvoice = () => {
-    const w = window.open('', '_blank');
-    w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>فاتورة ${invoiceNum}</title><style>${printStylesheet}</style></head><body>${buildInvoiceHTML()}</body></html>`);
-    w.document.close();
-    w.focus();
-    setTimeout(() => { w.print(); }, 500);
-  };
-
-  const sendViaMessages = () => {
-    const itemsText = sameMonthPays.map((p, i) => `${i+1}. ${PAY_TYPES[p.type]?.label || p.type}: ${fmtMoney(p.amount)}`).join('\n');
-    const termsText = terms.map((term, i) => `${i+1}. ${term}`).join('\n');
-    const invoiceText = [
-      `═══════════════════════════`,
-      `🏆 نادي نجد الرياض — أكاديمية كرة القدم`,
-      `═══════════════════════════`,
-      `🧾 فـاتـورة مشترك`,
-      `───────────────────────────`,
-      `👤 اسم اللاعب: ${player?.name || '—'}`,
-      `📅 الشهر: ${payment.month}`,
-      `🗓 تاريخ الإصدار: ${dateStr}`,
-      `📄 رقم الفاتورة: ${invoiceNum}`,
-      `───────────────────────────`,
-      `📦 البنود:`,
-      itemsText,
-      `───────────────────────────`,
-      `💰 الإجمالي المستحق: ${fmtMoney(totalAmount)}`,
-      `═══════════════════════════`,
-      `📋 الشروط:`,
-      termsText,
-      `═══════════════════════════`,
-      `🙏 شكراً لثقتكم في نادي نجد الرياض`,
-    ].join('\n');
-    onSendMessage && onSendMessage(invoiceText);
-    onClose();
-  };
-
-  return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.9)", display:"grid", placeItems:"center", zIndex:99999, backdropFilter:"blur(10px)" }}
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background:t.bg2, border:`2px solid rgba(124,73,168,.4)`, borderRadius:24, padding:"24px 28px", width:"min(760px,96vw)", maxHeight:"94vh", overflowY:"auto", animation:"scaleIn .25s ease", color:t.text, direction:"rtl", boxShadow:"0 24px 80px rgba(124,73,168,.3)" }}>
-        {/* Header bar */}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18, paddingBottom:14, borderBottom:`1px solid ${t.border}` }}>
-          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            <div style={{ width:38, height:38, borderRadius:10, background:"linear-gradient(135deg,#7C49A8,#A855F7)", display:"grid", placeItems:"center", fontSize:20 }}>🧾</div>
-            <div>
-              <div style={{ fontWeight:900, fontSize:16, color:t.text }}>فاتورة إلكترونية</div>
-              <div style={{ fontSize:11, color:"#A78BFA" }}>{invoiceNum} · {player?.name}</div>
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.2)", borderRadius:10, color:"#EF4444", width:36, height:36, cursor:"pointer", fontSize:16, fontFamily:"'Cairo',sans-serif" }}>✕</button>
-        </div>
-
-        {/* Invoice preview */}
-        <div id="invoice-print-area"
-          style={{ background:"#fff", color:"#1a1a2e", borderRadius:16, padding:28, marginBottom:20, direction:"rtl", fontFamily:"'Cairo',Arial,sans-serif", border:"1px solid #e8e0ff", boxShadow:"0 4px 20px rgba(124,73,168,.1)" }}>
-          <style dangerouslySetInnerHTML={{ __html: printStylesheet }}/>
-          <div dangerouslySetInnerHTML={{ __html: buildInvoiceHTML() }}/>
-        </div>
-
-        {/* Actions */}
-        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-          <button onClick={printInvoice}
-            style={{ flex:1, minWidth:180, height:50, borderRadius:14, border:"none", background:"linear-gradient(135deg,#7C49A8,#A855F7)", color:"#fff", fontSize:14, fontWeight:800, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, fontFamily:"'Cairo',sans-serif", boxShadow:"0 4px 16px rgba(124,73,168,.4)" }}>
-            🖨️ طباعة / PDF
-          </button>
-          {onSendMessage && (
-            <button onClick={sendViaMessages}
-              style={{ flex:1, minWidth:180, height:50, borderRadius:14, border:`2px solid #D8A435`, background:"rgba(216,164,53,.1)", color:"#D8A435", fontSize:14, fontWeight:800, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, fontFamily:"'Cairo',sans-serif" }}>
-              📨 إرسال لولي الأمر
-            </button>
-          )}
-          <button onClick={onClose}
-            style={{ height:50, borderRadius:14, border:`1px solid ${t.border}`, background:"transparent", color:t.textDim, fontSize:13, cursor:"pointer", padding:"0 20px", fontFamily:"'Cairo',sans-serif" }}>
-            إغلاق
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
 /* ── Admin Payments ─────────────────────────────────── */
-function AdminPayments({ payments, setPayments, players, coaches, prices, messages, setMessages, t }) {
+function AdminPayments({ payments, setPayments, players, coaches, prices, t }) {
   const [modal, setModal] = useState(false);
   const [fc, setFc] = useState("الكل");
   const [ft, setFt] = useState("الكل");
-  const [fp, setFp] = useState("الكل"); // player filter
-  const [invoiceItem, setInvoiceItem] = useState(null);
   
   const MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"].map(m => `${m} 2026`);
   
-  const empty = { playerId: "p1", coachId: "none", types: ["subscription"], month: "أبريل 2026", note: "", date: new Date().toISOString().split("T")[0] };
+  const empty = { playerId: "p1", coachId: "none", types: ["subscription"], month: CUR_MONTH, note: "", date: new Date().toISOString().split("T")[0] };
   const [form, setForm] = useState(empty);
-  const filtered = payments.filter(p =>
-    (fc === "الكل" || p.coachId === fc) &&
-    (ft === "الكل" || p.type === ft) &&
-    (fp === "الكل" || String(p.playerId) === String(fp))
-  );
-  // Unique players who have payments
-  const payingPlayers = players.filter(pl => payments.some(p => String(p.playerId) === String(pl.id)));
+  const filtered = payments.filter(p => (fc === "الكل" || p.coachId === fc) && (ft === "الكل" || p.type === ft));
 
   const toggleType = (type) => {
     setForm(f => {
@@ -2264,39 +1690,19 @@ function AdminPayments({ payments, setPayments, players, coaches, prices, messag
 
   return (
     <div>
-      <div style={{ marginBottom: 12, background: "rgba(124,73,168,.05)", padding: 12, borderRadius: 16, border: `1px solid ${t.border}` }}>
-        {/* Row 1: Player filter */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
-          <span style={{ fontSize: 10, color: "#10B981", fontWeight: 800, marginLeft: 8, width: 60 }}>👤 اللاعب:</span>
-          {["الكل", ...payingPlayers.map(pl => pl.id)].map(id => (
-            <button key={id} onClick={() => setFp(id)}
-              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid", borderColor: fp === id ? "#10B981" : t.border, background: fp === id ? "rgba(16,185,129,.15)" : t.bg2, color: fp === id ? "#10B981" : t.textDim, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>
-              {id === "الكل" ? "الكل" : players.find(pl => pl.id === id)?.name.split(" ")[0] || id}
-            </button>
-          ))}
-        </div>
-        {/* Row 2: Coach filter */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
-          <span style={{ fontSize: 10, color: "#7C49A8", fontWeight: 800, marginLeft: 8, width: 60 }}>📋 المدرب:</span>
+      <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
           {["الكل", ...coaches.map(c => c.id)].map(id => (
-            <button key={id} onClick={() => setFc(id)}
-              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid", borderColor: fc === id ? "#7C49A8" : t.border, background: fc === id ? "rgba(124,73,168,.12)" : t.bg2, color: fc === id ? "#C4B5FD" : t.textDim, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>
+            <button key={id} onClick={() => setFc(id)} style={{ padding: "7px 13px", borderRadius: 8, border: "1px solid", borderColor: fc === id ? "#7C49A8" : t.border, background: fc === id ? "rgba(124,73,168,.12)" : t.bg2, color: fc === id ? "#C4B5FD" : t.textDim, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>
               {id === "الكل" ? "الكل" : coaches.find(c => c.id === id)?.name.split(" ")[0]}
             </button>
           ))}
-        </div>
-        {/* Row 3: Type filter */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ fontSize: 10, color: "#D8A435", fontWeight: 800, marginLeft: 8, width: 60 }}>📦 النوع:</span>
           {Object.entries(PAY_TYPES).map(([k, v]) => (
-            <button key={k} onClick={() => setFt(k === ft ? "الكل" : k)}
-              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid", borderColor: ft === k ? v.color : t.border, background: ft === k ? `${v.color}18` : t.bg2, color: ft === k ? v.color : t.textDim, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>
+            <button key={k} onClick={() => setFt(k === ft ? "الكل" : k)} style={{ padding: "7px 13px", borderRadius: 8, border: "1px solid", borderColor: ft === k ? v.color : t.border, background: ft === k ? `${v.color}18` : t.bg2, color: ft === k ? v.color : t.textDim, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Cairo',sans-serif" }}>
               {v.icon} {v.label}
             </button>
           ))}
         </div>
-      </div>
-      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
         <Btn onClick={() => { setForm(empty); setModal(true); }}>
           <AnimIcon type="plus" size={14} color="#fff"/> تسجيل دفعة
         </Btn>
@@ -2305,7 +1711,7 @@ function AdminPayments({ payments, setPayments, players, coaches, prices, messag
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: t.bg, borderBottom: `1px solid ${t.border}` }}>
-              {["اللاعب", "النوع", "الشهر", "المبلغ", "المستلم", "التاريخ", "ملاحظة", "فاتورة"].map(h => (
+              {["اللاعب", "النوع", "الشهر", "المبلغ", "المستلم", "التاريخ", "ملاحظة"].map(h => (
                 <th key={h} style={{ padding: "12px 14px", textAlign: "right", fontSize: 10, color: t.textDim, fontWeight: 700 }}>{h}</th>
               ))}
             </tr>
@@ -2322,11 +1728,6 @@ function AdminPayments({ payments, setPayments, players, coaches, prices, messag
                   <td style={{ padding: "11px 14px", fontSize: 11, color: "#A78BFA", fontWeight: 600 }}>{p.coachName || "الإدارة"}</td>
                   <td style={{ padding: "11px 14px", fontSize: 11, color: t.textDim }}>{p.date}</td>
                   <td style={{ padding: "11px 14px", fontSize: 11, color: t.textDim }}>{p.note || "—"}</td>
-                  <td style={{ padding: "11px 14px" }}>
-                    <button onClick={() => setInvoiceItem(p)}
-                      style={{ background:"rgba(124,73,168,.12)", border:"1px solid rgba(124,73,168,.3)", borderRadius:8, color:"#A78BFA", fontSize:11, fontWeight:700, cursor:"pointer", padding:"5px 10px", fontFamily:"'Cairo',sans-serif" }}
-                      title="عرض الفاتورة">🧾</button>
-                  </td>
                 </tr>
               );
             })}
@@ -2337,20 +1738,6 @@ function AdminPayments({ payments, setPayments, players, coaches, prices, messag
           <span style={{ fontWeight: 800, color: "#10B981" }}>الإجمالي: {fmtMoney(filtered.reduce((a, p) => a + p.amount, 0))}</span>
         </div>
       </Card>
-      {invoiceItem && (
-        <InvoiceModal
-          payment={invoiceItem}
-          allPayments={payments}
-          player={players.find(p => String(p.id) === String(invoiceItem.playerId))}
-          onClose={() => setInvoiceItem(null)}
-          onSendMessage={setMessages ? (text) => {
-            const parentId = players.find(p => String(p.id) === String(invoiceItem.playerId))?.parentId;
-            if (!parentId) return;
-            setMessages(ms => [...ms, { id:`msg${Date.now()}`, from:"admin", fromName:"الإدارة", to:parentId, toName:invoiceItem.playerName, text, date:new Date().toISOString().split("T")[0], read:false }]);
-          } : null}
-          t={t}
-        />
-      )}
       {modal && (
         <Modal title="تسجيل دفعة جديدة" onClose={() => setModal(false)} t={t}>
           <Input label="اللاعب" value={form.playerId} onChange={v => setForm(f => ({ ...f, playerId: v }))} options={players.map(p => ({ v: p.id, l: p.name }))} t={t}/>
@@ -2496,9 +1883,10 @@ function AdminTrainings({ trainings, setTrainings, groups, coaches, t }) {
             <Input label="الوقت" value={form.time} onChange={v => setForm(f => ({ ...f, time: v }))} t={t}/>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Input label="المكان (الملعب)" value={form.field} onChange={v => setForm(f => ({ ...f, field: v }))} t={t}/>
+            <Input label="الوقت" value={form.time} onChange={v => setForm(f => ({ ...f, time: v }))} t={t}/>
             <Input label="المدة (دقيقة)" value={form.duration} onChange={v => setForm(f => ({ ...f, duration: +v }))} type="number" t={t}/>
           </div>
+          <Input label="الملعب" value={form.field} onChange={v => setForm(f => ({ ...f, field: v }))} t={t}/>
           <Input label="تركيز التدريب (المهارة)" value={form.trainingFocus} onChange={v => setForm(f => ({ ...f, trainingFocus: v }))} placeholder="مثال: تمرير قصير" t={t}/>
           <Input label="ملاحظات" value={form.note} onChange={v => setForm(f => ({ ...f, note: v }))} placeholder="اختياري" t={t}/>
           
@@ -2518,7 +1906,6 @@ function AdminTrainings({ trainings, setTrainings, groups, coaches, t }) {
 /* ── Admin Attendance (NEW) ─────────────────────────── */
 function AdminAttendance({ groups, players, coaches, attendance, setAttendance, coachesAttendance, setCoachesAttendance, t }) {
   const [subTab, setSubTab] = useState("players");
-  const [viewMode, setViewMode] = useState("record"); // "record" | "history"
   const [selGroup, setSelGroup] = useState(groups[0]?.id || "");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [records, setRecords] = useState({});
@@ -2535,166 +1922,68 @@ function AdminAttendance({ groups, players, coaches, attendance, setAttendance, 
 
   const save = () => {
     if (subTab === "players") {
-      const id = `att_${selGroup}_${date}`;
-      const newAtt = { id, date, groupId: selGroup, records };
+      const newAtt = { id: `att${Date.now()}`, date, groupId: selGroup, records };
       setAttendance(prev => {
         const filtered = prev.filter(a => !(a.date === date && a.groupId === selGroup));
         return [...filtered, newAtt];
       });
     } else {
-      const id = `ca_${date}`;
-      const newAtt = { id, date, groupId: "coaches", coachId: null, records };
+      const newAtt = { id: `ca${Date.now()}`, date, records };
       setCoachesAttendance(prev => {
-        const filtered = prev.filter(a => a.date !== date);
+        const filtered = prev.filter(a => a.date === date);
         return [...filtered, newAtt];
       });
     }
-    alert("✅ تم حفظ التحضير بنجاح");
+    alert("تم حفظ التحضير بنجاح");
   };
 
   const list = subTab === "players" ? players.filter(p => p.groupId === selGroup) : coaches;
 
-  // ── Attendance History calculations ──────────────────────────────────
-  const playerHistory = (() => {
-    return players.map(p => {
-      const sessions = attendance.filter(a => a.groupId === p.groupId && a.records);
-      let present = 0, absent = 0, excused = 0;
-      sessions.forEach(a => {
-        const status = typeof a.records === 'object' ? a.records[p.id] : null;
-        if (status === 'حاضر') present++;
-        else if (status === 'غائب') absent++;
-        else if (status === 'بعذر') excused++;
-      });
-      const total = present + absent + excused;
-      const pct = total > 0 ? Math.round((present / total) * 100) : 0;
-      const group = groups.find(g => g.id === p.groupId);
-      return { ...p, present, absent, excused, total, pct, groupName: group?.name || "—" };
-    }).sort((a, b) => b.pct - a.pct);
-  })();
-
-  const coachHistory = (() => {
-    return coaches.map(c => {
-      const allSessions = [...coachesAttendance];
-      let present = 0, absent = 0, excused = 0;
-      const sessionLog = [];
-      allSessions.forEach(a => {
-        const status = typeof a.records === 'object' ? a.records[c.id] : null;
-        if (status === 'حاضر') present++;
-        else if (status === 'غائب') absent++;
-        else if (status === 'بعذر') excused++;
-        if (status) sessionLog.push({ date: a.date, status });
-      });
-      const total = present + absent + excused;
-      const pct = total > 0 ? Math.round((present / total) * 100) : 0;
-      const group = groups.find(g => g.id === c.groupId);
-      return { ...c, present, absent, excused, total, pct, groupName: group?.name || "—", sessionLog: sessionLog.sort((a,b) => b.date.localeCompare(a.date)) };
-    }).sort((a, b) => b.pct - a.pct);
-  })();
-
   return (
     <div className="s1">
-      {/* Sub-tab: Players vs Coaches */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-        <button onClick={() => { setSubTab("players"); setViewMode("record"); }} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "none", background: subTab === "players" ? "linear-gradient(135deg,#7C49A8,#5A2D82)" : t.bg2, color: subTab === "players" ? "#fff" : t.textDim, fontWeight: 700, cursor: "pointer", transition: "all .3s" }}>⚽ تحضير اللاعبين</button>
-        <button onClick={() => { setSubTab("coaches"); setViewMode("record"); }} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "none", background: subTab === "coaches" ? "linear-gradient(135deg,#D8A435,#A87820)" : t.bg2, color: subTab === "coaches" ? "#fff" : t.textDim, fontWeight: 700, cursor: "pointer", transition: "all .3s" }}>🧑‍💼 تحضير المدربين</button>
+      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+        <button onClick={() => setSubTab("players")} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "none", background: subTab === "players" ? "linear-gradient(135deg,#7C49A8,#5A2D82)" : t.bg2, color: subTab === "players" ? "#fff" : t.textDim, fontWeight: 700, cursor: "pointer", transition: "all .3s" }}>تحضير اللاعبين</button>
+        <button onClick={() => setSubTab("coaches")} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "none", background: subTab === "coaches" ? "linear-gradient(135deg,#D8A435,#A87820)" : t.bg2, color: subTab === "coaches" ? "#fff" : t.textDim, fontWeight: 700, cursor: "pointer", transition: "all .3s" }}>تحضير المدربين</button>
       </div>
 
-      {/* View mode: Record vs History */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <button onClick={() => setViewMode("record")} style={{ padding: "7px 16px", borderRadius: 9, border: `1px solid ${viewMode === "record" ? "#7C49A8" : t.border}`, background: viewMode === "record" ? "rgba(124,73,168,.12)" : "transparent", color: viewMode === "record" ? "#C4B5FD" : t.textDim, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📝 تسجيل</button>
-        <button onClick={() => setViewMode("history")} style={{ padding: "7px 16px", borderRadius: 9, border: `1px solid ${viewMode === "history" ? "#10B981" : t.border}`, background: viewMode === "history" ? "rgba(16,185,129,.1)" : "transparent", color: viewMode === "history" ? "#10B981" : t.textDim, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📊 السجل التاريخي</button>
-      </div>
+      <Card t={t} style={{ padding: 22 }}>
+        <div style={{ display: "flex", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 150 }}><Input label="التاريخ" type="date" value={date} onChange={setDate} t={t}/></div>
+          {subTab === "players" && (
+            <div style={{ flex: 1, minWidth: 150 }}><Input label="المجموعة" value={selGroup} onChange={setSelGroup} options={groups.map(g => ({ v: g.id, l: g.name }))} t={t}/></div>
+          )}
+        </div>
 
-      {viewMode === "record" ? (
-        <Card t={t} style={{ padding: 22 }}>
-          <div style={{ display: "flex", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 150 }}><Input label="التاريخ" type="date" value={date} onChange={setDate} t={t}/></div>
-            {subTab === "players" && (
-              <div style={{ flex: 1, minWidth: 150 }}><Input label="المجموعة" value={selGroup} onChange={setSelGroup} options={groups.map(g => ({ v: g.id, l: g.name }))} t={t}/></div>
-            )}
-          </div>
-          <div style={{ border: `1px solid ${t.border}`, borderRadius: 12, overflow: "hidden" }}>
-            {list.map((item, idx) => (
-              <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: idx < list.length - 1 ? `1px solid ${t.border}` : "none", background: idx % 2 === 0 ? "transparent" : `${t.bg}44` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <Avatar name={item.name} size={36} color={subTab === "players" ? "#7C49A8" : "#D8A435"}/>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{item.name}</div>
-                    <div style={{ fontSize: 11, color: t.textDim }}>{subTab === "players" ? item.position : item.specialty}</div>
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {Object.entries(ATT_C).map(([status, color]) => (
-                    <button key={status} onClick={() => setRecords(r => ({ ...r, [item.id]: status }))}
-                      style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid", borderColor: records[item.id] === status ? color : t.border, background: records[item.id] === status ? `${color}18` : "transparent", color: records[item.id] === status ? color : t.textFaint, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all .2s" }}>
-                      {status}
-                    </button>
-                  ))}
+        <div style={{ border: `1px solid ${t.border}`, borderRadius: 12, overflow: "hidden" }}>
+          {list.map((item, idx) => (
+            <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: idx < list.length - 1 ? `1px solid ${t.border}` : "none", background: idx % 2 === 0 ? "transparent" : `${t.bg}44` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <Avatar name={item.name} size={36} color={subTab === "players" ? "#7C49A8" : "#D8A435"}/>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{item.name}</div>
+                  <div style={{ fontSize: 11, color: t.textDim }}>{subTab === "players" ? item.position : item.specialty}</div>
                 </div>
               </div>
-            ))}
-            {list.length === 0 && <div style={{ padding: 40, textAlign: "center", color: t.textFaint }}>لا يوجد بيانات</div>}
-          </div>
-          <Btn onClick={save} style={{ width: "100%", marginTop: 20 }}>💾 حفظ التحضير</Btn>
-        </Card>
-      ) : (
-        /* ── HISTORY VIEW ───────────────────────────── */
-        <Card t={t} style={{ padding: 22 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: t.text, marginBottom: 16 }}>
-            {subTab === "players" ? "📊 سجل حضور اللاعبين" : "📊 سجل حضور المدربين"}
-          </div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: t.bg, borderBottom: `1px solid ${t.border}` }}>
-                <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 11, color: t.textDim, fontWeight: 700 }}>الاسم</th>
-                {subTab === "players" && <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 11, color: t.textDim, fontWeight: 700 }}>المجموعة</th>}
-                {subTab === "coaches" && <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 11, color: t.textDim, fontWeight: 700 }}>الفريق</th>}
-                <th style={{ padding: "10px 12px", textAlign: "center", fontSize: 11, color: "#10B981", fontWeight: 700 }}>✅ حاضر</th>
-                <th style={{ padding: "10px 12px", textAlign: "center", fontSize: 11, color: "#EF4444", fontWeight: 700 }}>❌ غائب</th>
-                <th style={{ padding: "10px 12px", textAlign: "center", fontSize: 11, color: "#F59E0B", fontWeight: 700 }}>🕐 بعذر</th>
-                <th style={{ padding: "10px 12px", textAlign: "center", fontSize: 11, color: t.textDim, fontWeight: 700 }}>الكل</th>
-                <th style={{ padding: "10px 12px", textAlign: "center", fontSize: 11, color: "#7C49A8", fontWeight: 700 }}>نسبة الحضور</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(subTab === "players" ? playerHistory : coachHistory).map((item, i) => (
-                <tr key={item.id} style={{ borderBottom: `1px solid ${t.border}`, transition: "background .15s" }}>
-                  <td style={{ padding: "11px 12px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                      <Avatar name={item.name} size={30} color={subTab === "players" ? "#7C49A8" : "#D8A435"}/>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{item.name}</div>
-                        <div style={{ fontSize: 10, color: t.textDim }}>{subTab === "players" ? item.position : item.specialty}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td style={{ padding: "11px 12px", fontSize: 12, color: t.textDim }}>{item.groupName}</td>
-                  <td style={{ padding: "11px 12px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "#10B981" }}>{item.present}</td>
-                  <td style={{ padding: "11px 12px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "#EF4444" }}>{item.absent}</td>
-                  <td style={{ padding: "11px 12px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "#F59E0B" }}>{item.excused}</td>
-                  <td style={{ padding: "11px 12px", textAlign: "center", fontSize: 12, color: t.textDim }}>{item.total}</td>
-                  <td style={{ padding: "11px 12px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ flex: 1, height: 6, background: t.border, borderRadius: 3 }}>
-                        <div style={{ height: "100%", borderRadius: 3, background: item.pct >= 80 ? "#10B981" : item.pct >= 60 ? "#F59E0B" : "#EF4444", width: `${item.pct}%`, transition: "width 1s" }}/>
-                      </div>
-                      <span style={{ fontSize: 12, fontWeight: 800, color: item.pct >= 80 ? "#10B981" : item.pct >= 60 ? "#F59E0B" : "#EF4444", minWidth: 36 }}>{item.pct}%</span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {(subTab === "players" ? playerHistory : coachHistory).length === 0 && (
-                <tr><td colSpan={8} style={{ padding: 40, textAlign: "center", color: t.textFaint }}>لا يوجد سجل حضور مسجل حتى الآن</td></tr>
-              )}
-            </tbody>
-          </table>
-        </Card>
-      )}
+              <div style={{ display: "flex", gap: 6 }}>
+                {Object.entries(ATT_C).map(([status, color]) => (
+                  <button key={status} onClick={() => setRecords(r => ({ ...r, [item.id]: status }))}
+                    style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid", borderColor: records[item.id] === status ? color : t.border, background: records[item.id] === status ? `${color}18` : "transparent", color: records[item.id] === status ? color : t.textFaint, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all .2s" }}>
+                    {status}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          {list.length === 0 && <div style={{ padding: 40, textAlign: "center", color: t.textFaint }}>لا يوجد بيانات</div>}
+        </div>
+
+        <Btn onClick={save} style={{ width: "100%", marginTop: 20 }}>💾 حفظ التحضير</Btn>
+      </Card>
     </div>
   );
 }
 
-function CoachPortal({ user, onLogout, groups, coaches, players, parents, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, setEvals, messages, setMessages, prices, trainings, setTrainings, t, syncStatus }) {
+function CoachPortal({ user, onLogout, groups, coaches, players, payments, setPayments, attendance, setAttendance, coachesAttendance, setCoachesAttendance, evals, setEvals, messages, setMessages, prices, trainings, setTrainings, t }) {
   const coach = coaches.find(c => c.id === user.id) || coaches[0];
   const perms = coach?.perms || { ...DEFAULT_PERMS };
   const group = groups.find(g => g.id === coach.groupId);
@@ -2718,14 +2007,14 @@ function CoachPortal({ user, onLogout, groups, coaches, players, parents, paymen
   }, [perms]);
 
   return (
-    <Shell title={coach.name} subtitle={`مدرب ${group?.name || ""}`} color="#06B6D4" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge={group?.name} user={user} t={t} syncStatus={syncStatus}>
+    <Shell title={coach.name} subtitle={`مدرب ${group?.name || ""}`} color="#06B6D4" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge={group?.name} user={user} t={t}>
       {tab === "home"       && <CoachHome coach={coach} group={group} groups={groups} myPlayers={myPlayers} attendance={attendance} evals={evals} trainings={trainings} t={t}/>}
       {tab === "sessions"   && <CoachSessions coach={coach} group={group} groups={groups} trainings={trainings} t={t}/>}
       {tab === "players"    && <CoachPlayers myPlayers={myPlayers} group={group} evals={evals} t={t}/>}
       {tab === "attendance" && perms.attendance !== false && <CoachAttendance coachId={user.id} group={group} myPlayers={myPlayers} attendance={attendance} setAttendance={setAttendance} t={t}/>}
-      {tab === "eval"       && perms.evals !== false      && <CoachEval coachId={user.id} coachName={coach.name} myPlayers={myPlayers} players={players} evals={evals} setEvals={setEvals} t={t}/>}
+      {tab === "eval"       && perms.evals !== false      && <CoachEval coachId={user.id} myPlayers={myPlayers} evals={evals} setEvals={setEvals} t={t}/>}
       {tab === "payments"   && perms.payments !== false   && <CoachPayments coachId={user.id} myPlayers={myPlayers} payments={payments} setPayments={setPayments} prices={prices} coaches={coaches} t={t}/>}
-      {tab === "messages"   && perms.messages !== false   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={coach.name} coaches={coaches} parents={parents} players={players} t={t} role="coach" myGroupId={coach.groupId}/>}
+      {tab === "messages"   && perms.messages !== false   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={coach.name} coaches={coaches} parents={INIT_PARENTS} t={t}/>}
     </Shell>
   );
 }
@@ -2877,8 +2166,8 @@ function CoachPlayers({ myPlayers, group, evals, t }) {
   const [sel, setSel] = useState(null);
   if (sel) {
     const p  = myPlayers.find(x => x.id === sel);
-    const pe = evals.filter(e => e.playerId == p.id).slice(-3);
-    const lastEval = evals.filter(e => e.playerId == p.id).slice(-1)[0];
+    const pe = evals.filter(e => e.playerId === p.id).slice(-3);
+    const lastEval = evals.filter(e => e.playerId === p.id).slice(-1)[0];
     return (
       <div>
         <button onClick={() => setSel(null)} style={{ background: t.bg2, border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", marginBottom: 18, fontFamily: "'Cairo',sans-serif" }}>← رجوع</button>
@@ -2898,19 +2187,10 @@ function CoachPlayers({ myPlayers, group, evals, t }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <Card t={t} style={{ padding: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 14 }}>📊 المهارات</div>
-              {lastEval ? (
-                <>
-                  <SkillBar label="السرعة"        val={lastEval.speed}     color="#06B6D4" t={t}/>
-                  <SkillBar label="التحمل"        val={lastEval.stamina ?? p.stamina}   color="#10B981" t={t}/>
-                  <SkillBar label="التقنية"       val={lastEval.technique} color="#7C49A8" t={t}/>
-                  <SkillBar label="العمل الجماعي" val={lastEval.teamwork}  color="#F59E0B" t={t}/>
-                </>
-              ) : (
-                <div style={{ textAlign:'center', padding:'20px 0', color: t.textFaint }}>
-                  <div style={{ fontSize:28, marginBottom:8 }}>📋</div>
-                  <div style={{ fontSize:12 }}>لم يتم التقييم بعد</div>
-                </div>
-              )}
+              <SkillBar label="السرعة"        val={p.speed}     color="#06B6D4" t={t}/>
+              <SkillBar label="التحمل"        val={p.stamina}   color="#10B981" t={t}/>
+              <SkillBar label="التقنية"       val={p.technique} color="#7C49A8" t={t}/>
+              <SkillBar label="العمل الجماعي" val={p.teamwork}  color="#F59E0B" t={t}/>
             </Card>
             <Card t={t} style={{ padding: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 16 }}>📝 حالة التقييم</div>
@@ -3001,19 +2281,16 @@ function CoachAttendance({ coachId, group, myPlayers, attendance, setAttendance,
 }
 
 /* ── Coach Eval ─────────────────────────────────────── */
-function CoachEval({ coachId, coachName, myPlayers, players, evals, setEvals, t }) {
+function CoachEval({ coachId, myPlayers, evals, setEvals, t }) {
   const [modal, setModal] = useState(false);
   const [form, setForm]   = useState({ playerId: myPlayers[0]?.id || "", speed: 80, technique: 80, teamwork: 80, note: "", date: new Date().toISOString().split("T")[0] });
-  const save = () => { 
-    setEvals(e => [...e, { ...form, id: `ev${Date.now()}`, coachId, coachName }]); 
-    setModal(false); 
-  };
+  const save = () => { setEvals(e => [...e, { ...form, id: `ev${Date.now()}`, coachId }]); setModal(false); };
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}><Btn onClick={() => setModal(true)}><AnimIcon type="plus" size={14} color="#fff"/> إضافة تقييم</Btn></div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {(evals || []).slice().reverse().map(e => {
-          const p = players.find(x => String(x.id) == String(e.playerId));
+        {evals.filter(e => e.coachId === coachId).slice().reverse().map(e => {
+          const p = myPlayers.find(x => x.id === e.playerId);
           return (
             <Card key={e.id} t={t} style={{ padding: 18 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
@@ -3057,7 +2334,7 @@ function CoachEval({ coachId, coachName, myPlayers, players, evals, setEvals, t 
 /* ── Coach Payments ─────────────────────────────────── */
 function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coaches, t }) {
   const [modal, setModal] = useState(false);
-  const [form, setForm]   = useState({ playerId: myPlayers[0]?.id || "", type: "subscription", month: "أبريل 2026", note: "", date: new Date().toISOString().split("T")[0] });
+  const [form, setForm]   = useState({ playerId: myPlayers[0]?.id || "", type: "subscription", month: CUR_MONTH, note: "", date: new Date().toISOString().split("T")[0] });
   const myPays = payments.filter(p => p.coachId === coachId);
   const total  = myPays.reduce((a, p) => a + p.amount, 0);
   const save   = () => {
@@ -3103,7 +2380,7 @@ function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coac
         <Modal title="تسجيل استلام دفعة" onClose={() => setModal(false)} t={t}>
           <Input label="اللاعب" value={form.playerId} onChange={v => setForm(f => ({ ...f, playerId: v }))} options={myPlayers.map(p => ({ v: p.id, l: p.name }))} t={t}/>
           <Input label="النوع" value={form.type} onChange={v => setForm(f => ({ ...f, type: v }))} options={Object.entries(PAY_TYPES).map(([k, v]) => ({ v: k, l: `${v.icon} ${v.label} — ${prices[k]} ر.س` }))} t={t}/>
-          <Input label="الشهر" value={form.month} onChange={v => setForm(f => ({ ...f, month: v }))} placeholder="أبريل 2026" t={t}/>
+          <Input label="الشهر" value={form.month} onChange={v => setForm(f => ({ ...f, month: v }))} placeholder={CUR_MONTH} t={t}/>
           <Input label="التاريخ" value={form.date} onChange={v => setForm(f => ({ ...f, date: v }))} type="date" t={t}/>
           <Input label="ملاحظة" value={form.note} onChange={v => setForm(f => ({ ...f, note: v }))} placeholder="اختياري" t={t}/>
           <div style={{ background: t.bg, borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: t.text }}>
@@ -3119,35 +2396,12 @@ function CoachPayments({ coachId, myPlayers, payments, setPayments, prices, coac
 /* ══════════════════════════════════════════════════════════
    PARENT PORTAL
 ══════════════════════════════════════════════════════════ */
-function ParentPortal(props) {
-  try {
-    const { 
-      user = {}, 
-      onLogout, 
-      players = [], 
-      groups = [], 
-      coaches: coachesList = [], 
-      parents = [], 
-      payments = [], 
-      attendance = [], 
-      evals = [], 
-      messages = [], 
-      setMessages, 
-      prices = {}, 
-      trainings = [], 
-      t, 
-      forceRefresh,
-      syncStatus 
-    } = props;
-  const parentId = String(user.id).replace("par_", "").trim().toLowerCase();
-  const parent = (parents || []).find(p => p && String(p.id).trim().toLowerCase() === parentId) || { name: user?.name, id: user?.id };
-  const myPlayers = (players || []).filter(p => {
-    if (!p) return false;
-    const pID = String(p.parentId || "").trim().toLowerCase();
-    const pPhone = String(p.phone || "").trim().toLowerCase();
-    // Match exactly or if one contains the other (robust against leading zeros or prefixes)
-    return pID === parentId || pPhone === parentId || (pID && parentId.includes(pID)) || (pID && pID.includes(parentId));
-  });
+function ParentPortal({ user, onLogout, players, groups, coaches, parents, payments, attendance, evals, messages, setMessages, prices, trainings, t }) {
+  // 1. Identify the parent from the dynamic parents list
+  const parent = parents.find(p => p.id === user.id) || { name: user.name, id: user.id };
+  
+  // 2. Filter players by parentId
+  const myPlayers = players.filter(p => p.parentId === user.id);
   
   const [activeChild, setActiveChild] = useState(myPlayers[0]?.id);
 
@@ -3156,21 +2410,19 @@ function ParentPortal(props) {
       setActiveChild(myPlayers[0].id);
     }
   }, [myPlayers, activeChild]);
-
   const [tab, setTab] = useState("overview");
-  const unread = (messages || []).filter(m => m && String(m.to) == String(user?.id) && !m.read).length;
+  const unread = messages.filter(m => m.to === user.id && !m.read).length;
   
-  const child      = myPlayers.find(p => p && String(p.id) == String(activeChild)) || myPlayers[0];
-  const childGroup = child ? (groups || []).find(g => g && String(g.id) == String(child.groupId)) : null;
-  const childCoach = childGroup ? (coachesList || []).find(c => c && String(c.id) == String(childGroup.coachId)) : null;
-  const childPays  = child ? (payments || []).filter(p => p && String(p.playerId) == String(child.id)) : [];
-  const childAtt   = child ? (attendance || []).filter(a => a && String(a.groupId) == String(child.groupId)) : [];
-  const childEvals = child ? (evals || []).filter(e => e && String(e.playerId) == String(child.id)) : [];
+  const child      = myPlayers.find(p => p.id === activeChild) || myPlayers[0];
+  const childGroup = child ? groups.find(g => g.id === child.groupId) : null;
+  const childCoach = childGroup ? coaches.find(c => c.id === childGroup.coachId) : null;
+  const childPays  = child ? payments.filter(p => p.playerId === child.id) : [];
+  const childAtt   = child ? attendance.filter(a => a.groupId === child.groupId) : [];
+  const childEvals = child ? evals.filter(e => e.playerId === child.id) : [];
 
   // My coaches: find all unique coaches of my children
   const myCoachIds = [...new Set(myPlayers.map(p => {
-    if (!p) return null;
-    const g = (groups || []).find(x => x && String(x.id) == String(p.groupId));
+    const g = groups.find(x => x.id === p.groupId);
     return g?.coachId;
   }).filter(Boolean))];
 
@@ -3184,48 +2436,31 @@ function ParentPortal(props) {
   ];
 
   return (
-    <Shell title={`أهلاً، ${parent.name}`} subtitle="بوابة ولي الأمر" color="#10B981" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge="ولي أمر" user={user} t={t} syncStatus={syncStatus}
-      actions={<Btn variant="secondary" onClick={forceRefresh} style={{ padding: "6px 12px", fontSize: 11 }}>🔄 تحديث</Btn>}>
+    <Shell title={`أهلاً، ${parent.name}`} subtitle="بوابة ولي الأمر" color="#10B981" tabs={tabs} activeTab={tab} setActiveTab={setTab} onLogout={onLogout} badge="ولي أمر" user={user} t={t}>
       {myPlayers.length > 1 && (
         <div style={{ display: "flex", gap: 8, marginBottom: 18, borderBottom: `1px solid ${t.border}`, paddingBottom: 14 }}>
           {myPlayers.map(p => (
             <button key={p.id} onClick={() => setActiveChild(p.id)}
-              style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid", borderColor: String(activeChild) === String(p.id) ? "#10B981" : t.border, background: String(activeChild) === String(p.id) ? "rgba(16,185,129,.12)" : t.bg2, color: String(activeChild) === String(p.id) ? "#10B981" : t.textDim, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Cairo',sans-serif" }}>
+              style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid", borderColor: activeChild === p.id ? "#10B981" : t.border, background: activeChild === p.id ? "rgba(16,185,129,.12)" : t.bg2, color: activeChild === p.id ? "#10B981" : t.textDim, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Cairo',sans-serif" }}>
               <Avatar name={p.name} size={22} color="#10B981"/>{p.name}
             </button>
           ))}
         </div>
       )}
-      {tab === "overview"   && <ParentOverview child={child} childGroup={childGroup} childCoach={childCoach} childPays={childPays} childEvals={childEvals} childAtt={childAtt} prices={prices} coachesList={coachesList} t={t} userId={user.id}/>}
+      {tab === "overview"   && <ParentOverview child={child} childGroup={childGroup} childCoach={childCoach} childPays={childPays} childEvals={childEvals} prices={prices} t={t}/>}
       {tab === "scores"     && <ParentScores child={child} childEvals={childEvals} childCoach={childCoach} t={t}/>}
       {tab === "attendance" && <ParentAttendance child={child} childAtt={childAtt} t={t}/>}
-      {tab === "payments"   && <ParentPayments child={child} childPays={childPays} childAtt={childAtt} prices={prices} t={t}/>}
+      {tab === "payments"   && <ParentPayments child={child} childPays={childPays} prices={prices} t={t}/>}
       {tab === "schedule"   && <ParentSchedule childGroup={childGroup} childCoach={childCoach} trainings={trainings} t={t}/>}
-      {tab === "messages"   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={parent?.name || user?.name} coaches={coachesList} parents={parents} players={players} t={t} role="parent" myCoachIds={myCoachIds} />}
+      {tab === "messages"   && <Messaging messages={messages} setMessages={setMessages} meId={user.id} meName={parent.name} coaches={coaches} parents={parents} t={t} role="parent" myCoachIds={myCoachIds} />}
     </Shell>
   );
-  } catch (err) {
-    return (
-      <div style={{ padding: 30, background: "#1A0505", color: "#FFBABA", borderRadius: 12, border: "1px solid #FF5555", margin: 20 }}>
-        <h3>❌ ParentPortal Internal Error (v0.4.1)</h3>
-        <pre style={{ fontSize: 11, marginTop: 10 }}>{err.message}</pre>
-        <pre style={{ fontSize: 9, opacity: 0.6, marginTop: 10 }}>{err.stack}</pre>
-      </div>
-    );
-  }
 }
 
-function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, childAtt, prices, coachesList, t, userId }) {
-  if (!child) return (
-    <div style={{ textAlign: "center", color: t.textFaint, padding: 60 }}>
-      <div style={{ fontSize: 40, marginBottom: 20 }}>🔍</div>
-      <div style={{ fontSize: 18, fontWeight: 700, color: t.text, marginBottom: 10 }}>لا يوجد أبناء مسجلين لهذا الحساب</div>
-      <div style={{ fontSize: 12, opacity: 0.6 }}>رقم هوية ولي الأمر المستخدم في الدخول: <strong style={{ color: "#10B981" }}>{userId}</strong></div>
-      <div style={{ fontSize: 11, marginTop: 20, maxWidth: 400, margin: "20px auto", lineHeight: 1.6 }}>يرجى التأكد من أن "رقم هوية ولي الأمر" المسجل في ملف اللاعب من لوحة الإدارة يطابق الرقم أعلاه تماماً.</div>
-    </div>
-  );
+function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, prices, t }) {
+  if (!child) return <div style={{ textAlign: "center", color: t.textFaint, padding: 60 }}>لا يوجد أبناء مسجلين</div>;
   const lastEval  = childEvals.slice(-1)[0];
-  const monthPaid = childPays.some(p => p.type === "subscription" && p.month === "أبريل 2026");
+  const monthPaid = childPays.some(p => p.type === "subscription" && p.month === CUR_MONTH);
   const totalPaid = childPays.reduce((a, p) => a + p.amount, 0);
   return (
     <div>
@@ -3241,39 +2476,17 @@ function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, 
               <Chip text={child.status} color={child.status === "نشط" ? "#10B981" : "#EF4444"}/>
             </div>
           </div>
-          {(() => {
-            const latestEval = childEvals.slice(-1)[0];
-            const evalScore = latestEval ? Math.round((latestEval.speed + latestEval.technique + latestEval.teamwork) / 3) : null;
-            return evalScore !== null ? (
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 36, fontWeight: 900, color: "#10B981" }}>{evalScore}</div>
-                <div style={{ fontSize: 11, color: t.textDim }}>التقييم الكلي</div>
-              </div>
-            ) : (
-              <div style={{ textAlign: "center", background: "rgba(16,185,129,.07)", borderRadius: 12, padding: "10px 16px" }}>
-                <div style={{ fontSize: 11, color: t.textFaint }}>لم يُقيَّم بعد</div>
-              </div>
-            );
-          })()}
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 36, fontWeight: 900, color: "#10B981" }}>{child.score}</div>
+            <div style={{ fontSize: 11, color: t.textDim }}>التقييم الكلي</div>
+          </div>
         </div>
       </Card>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 18 }} className="s2">
         <StatCard label="الأهداف"   counter={child.goals || 0}         icon="⚽" color="#EF4444" t={t}/>
         <StatCard label="التمريرات" counter={child.assists || 0}       icon="🎯" color="#10B981" t={t}/>
-        <StatCard label="الحضور"    value={(() => {
-          // Calculate real attendance from childAtt records
-          const sessions = childAtt || [];
-          if (!sessions.length) return (child.attendancePct && !isNaN(child.attendancePct)) ? `${child.attendancePct}%` : '—';
-          let present = 0, total = 0;
-          sessions.forEach(a => { if (a.records && a.records[String(child.id)]) { total++; if (a.records[String(child.id)] === 'حاضر') present++; } });
-          const res = total > 0 ? Math.round(present/total*100) : (child.attendancePct || 0);
-          return isNaN(res) ? '—' : `${res}%`;
-        })()} icon="📅" color="#7C49A8" t={t}/>
-        <StatCard label="التقييم"   counter={(() => {
-          const latestEval = childEvals.slice(-1)[0];
-          if (!latestEval) return '—';
-          return Math.round((latestEval.speed + latestEval.technique + latestEval.teamwork) / 3);
-        })()} icon="⭐" color="#F59E0B" t={t}/>
+        <StatCard label="الحضور"    counter={child.attendancePct ? `${child.attendancePct}%` : "—"} icon="📅" color="#7C49A8" t={t}/>
+        <StatCard label="التقييم"   counter={child.score || "—"}       icon="⭐" color="#F59E0B" t={t}/>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }} className="s3">
         <Card t={t} style={{ padding: 22 }}>
@@ -3281,18 +2494,11 @@ function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, 
           {lastEval 
             ? (
               <div>
-                <div style={{ background: "rgba(16,185,129,.05)", borderRadius: 12, padding: 16, border: "1px solid rgba(16,185,129,.15)", marginBottom: 15 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-                    <div style={{ fontSize: 11, color: t.textDim }}>آخر تقييم بتاريخ: <span style={{ fontWeight: 700, color: t.text }}>{lastEval.date}</span></div>
-                    <Chip text={lastEval.coachName || "مدرب النادي"} color="#10B981"/>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 15 }}>
-                    <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: t.textDim }}>سرعة</div><div style={{ fontSize: 16, fontWeight: 900, color: "#06B6D4" }}>{lastEval.speed}</div></div>
-                    <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: t.textDim }}>تقنية</div><div style={{ fontSize: 16, fontWeight: 900, color: "#7C49A8" }}>{lastEval.technique}</div></div>
-                    <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: t.textDim }}>فريق</div><div style={{ fontSize: 16, fontWeight: 900, color: "#F59E0B" }}>{lastEval.teamwork}</div></div>
-                  </div>
-                  {lastEval.note && <div style={{ fontSize: 12, color: t.textMid, fontStyle: "italic", background: t.bg, padding: 10, borderRadius: 8, border: `1px dashed ${t.border}` }}>"{lastEval.note}"</div>}
-                </div>
+                <div style={{ fontSize: 11, color: t.textDim, marginBottom: 12 }}>آخر تقييم بتاريخ: {lastEval.date} · {childCoach?.name}</div>
+                <SkillBar label="السرعة" val={lastEval.speed} color="#06B6D4" t={t}/>
+                <SkillBar label="التقنية" val={lastEval.technique} color="#7C49A8" t={t}/>
+                <SkillBar label="العمل الجماعي" val={lastEval.teamwork} color="#F59E0B" t={t}/>
+                {lastEval.note && <div style={{ background: t.bg, borderRadius: 8, padding: "10px 12px", fontSize: 12, color: t.textDim, lineHeight: 1.7, marginTop: 10 }}>"{lastEval.note}"</div>}
               </div>
             )
             : <div style={{ textAlign: "center", color: t.textFaint, padding: "40px 0", fontSize: 13 }}>لم يتم تقييم اللاعب بعد من قبل المدرب.</div>
@@ -3303,7 +2509,7 @@ function ParentOverview({ child, childGroup, childCoach, childPays, childEvals, 
           <div style={{ fontSize: 26, fontWeight: 900, color: "#10B981", marginBottom: 4 }}>{fmtMoney(totalPaid)}</div>
           <div style={{ fontSize: 11, color: t.textDim, marginBottom: 14 }}>إجمالي ما تم دفعه</div>
           {childPays.slice(-3).map(p => {
-            const pt = PAY_TYPES[p.type] || { label: "أخرى", icon: "💰", color: "#7C49A8" };
+            const pt = PAY_TYPES[p.type];
             return (
               <div key={p.id} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${t.border}`, fontSize: 12 }}>
                 <span style={{ color: t.textDim }}>{pt.icon} {pt.label} · {p.month}</span>
@@ -3324,24 +2530,10 @@ function ParentScores({ child, childEvals, childCoach, t }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }} className="s1">
         <Card t={t} style={{ padding: 22 }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 16 }}>📊 المهارات الحالية</div>
-          {(() => {
-            const latestEval = childEvals.slice(-1)[0];
-            if (!latestEval) return (
-              <div style={{ textAlign:'center', padding:'30px 0', color: t.textFaint }}>
-                <div style={{ fontSize:32, marginBottom:10 }}>📋</div>
-                <div style={{ fontSize:13, fontWeight:700, color: t.textDim }}>لم يتم التقييم بعد</div>
-                <div style={{ fontSize:11, marginTop:6 }}>سيظهر التقييم بعد أول جلسة تقييم مع المدرب.</div>
-              </div>
-            );
-            return (
-              <>
-                <SkillBar label="السرعة"         val={latestEval.speed}     color="#06B6D4" t={t}/>
-                <SkillBar label="التحمل"         val={latestEval.stamina ?? child.stamina}   color="#10B981" t={t}/>
-                <SkillBar label="التقنية"        val={latestEval.technique} color="#7C49A8" t={t}/>
-                <SkillBar label="العمل الجماعي" val={latestEval.teamwork}  color="#F59E0B" t={t}/>
-              </>
-            );
-          })()}
+          <SkillBar label="السرعة"         val={child.speed}     color="#06B6D4" t={t}/>
+          <SkillBar label="التحمل"         val={child.stamina}   color="#10B981" t={t}/>
+          <SkillBar label="التقنية"        val={child.technique} color="#7C49A8" t={t}/>
+          <SkillBar label="العمل الجماعي" val={child.teamwork}  color="#F59E0B" t={t}/>
         </Card>
         <Card t={t} style={{ padding: 22 }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: t.text, marginBottom: 14 }}>⚽ إحصائيات الموسم</div>
@@ -3405,19 +2597,19 @@ function ParentAttendance({ child, childAtt, t }) {
   );
 }
 
-function ParentPayments({ child, childPays, childAtt, prices, t, messages, setMessages }) {
-  const [invoiceItem, setInvoiceItem] = useState(null);
+function ParentPayments({ child, childPays, prices, t }) {
   const total     = childPays.reduce((a, p) => a + p.amount, 0);
-  const monthPaid = childPays.some(p => p.type === "subscription" && p.month === "أبريل 2026");
-  const byType    = Object.entries(PAY_TYPES).map(([k, v]) => ({ k, ...v, paid: childPays.filter(p => p.type === k).reduce((a, p) => a + p.amount, 0), count: childPays.filter(p => p.type === k).length }));
+  const monthPaid = childPays.some(p => p.type === "subscription" && p.month === CUR_MONTH);
+  const shouldHavePaid = isMonthAfterJoin(CUR_MONTH, child?.joinDate);
+
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 18 }} className="s1">
         <StatCard label="إجمالي المدفوعات" counter={total} value={fmtMoney(total)} icon="💰" color="#10B981" t={t}/>
         <StatCard label="عدد العمليات" counter={childPays.length} icon="🧾" color="#7C49A8" t={t}/>
-        <StatCard label="اشتراك أبريل" value={monthPaid ? "مدفوع ✅" : "لم يُدفع ⚠️"} icon="📋" color={monthPaid ? "#10B981" : "#EF4444"} t={t}/>
+        <StatCard label={`اشتراك ${CUR_MONTH.split(" ")[0]}`} value={!shouldHavePaid ? "غير مطلوب ⚪" : monthPaid ? "مدفوع ✅" : "لم يُدفع ⚠️"} icon="📋" color={!shouldHavePaid ? t.textDim : monthPaid ? "#10B981" : "#EF4444"} t={t}/>
       </div>
-      {!monthPaid && <div style={{ background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.2)", borderRadius: 12, padding: 16, marginBottom: 18, fontSize: 13, color: "#FCA5A5" }}>⚠️ اشتراك أبريل 2026 لم يُدفع — المبلغ المطلوب: <strong>{fmtMoney(prices.subscription)}</strong></div>}
+      {(!monthPaid && shouldHavePaid) && <div style={{ background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.2)", borderRadius: 12, padding: 16, marginBottom: 18, fontSize: 13, color: "#FCA5A5" }}>⚠️ اشتراك {CUR_MONTH} لم يُدفع — المبلغ المطلوب: <strong>{fmtMoney(prices.subscription)}</strong></div>}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }} className="s2">
         {byType.filter(tb => tb.count > 0).map(tb => (
           <Card key={tb.k} t={t} style={{ padding: 18 }}>
@@ -3434,7 +2626,7 @@ function ParentPayments({ child, childPays, childAtt, prices, t, messages, setMe
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: t.bg, borderBottom: `1px solid ${t.border}` }}>
-              {["النوع", "الشهر", "المبلغ", "استلم المدرب", "التاريخ", "ملاحظة", "فاتورة"].map(h => (
+              {["النوع", "الشهر", "المبلغ", "استلم المدرب", "التاريخ", "ملاحظة"].map(h => (
                 <th key={h} style={{ padding: "11px 14px", textAlign: "right", fontSize: 10, color: t.textDim, fontWeight: 700 }}>{h}</th>
               ))}
             </tr>
@@ -3450,26 +2642,12 @@ function ParentPayments({ child, childPays, childAtt, prices, t, messages, setMe
                   <td style={{ padding: "10px 14px", fontSize: 11, color: "#A78BFA", fontWeight: 600 }}>{p.coachName}</td>
                   <td style={{ padding: "10px 14px", fontSize: 11, color: t.textDim }}>{p.date}</td>
                   <td style={{ padding: "10px 14px", fontSize: 11, color: t.textDim }}>{p.note || "—"}</td>
-                  <td style={{ padding: "10px 14px" }}>
-                    <button onClick={() => setInvoiceItem(p)}
-                      style={{ background:"rgba(16,185,129,.1)", border:"1px solid rgba(16,185,129,.3)", borderRadius:8, color:"#10B981", fontSize:11, fontWeight:700, cursor:"pointer", padding:"5px 10px", fontFamily:"'Cairo',sans-serif" }}
-                      title="عرض الفاتورة">🧾</button>
-                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </Card>
-      {invoiceItem && (
-        <InvoiceModal
-          payment={invoiceItem}
-          allPayments={childPays}
-          player={child}
-          onClose={() => setInvoiceItem(null)}
-          t={t}
-        />
-      )}
     </div>
   );
 }
@@ -3574,256 +2752,235 @@ function ParentSchedule({ childGroup, childCoach, trainings, t }) {
 /* ══════════════════════════════════════════════════════════
    MESSAGING (shared)
 ══════════════════════════════════════════════════════════ */
-const ROLE_TEMPLATES = {
-  admin: [
-    { label: "ترحيب رسمي",    text: "أهلاً بك في نادي نجد الرياضي. يسعدنا انضمامكم لعائلة النادي ونتمنى لكم تجربة رياضية متميزة." },
-    { label: "تذكير اشتراك",  text: "نحيطكم علماً بأن موعد سداد رسوم الاشتراك الشهري قد حلّ. يرجى المبادرة بالسداد لضمان استمرارية التدريب." },
-    { label: "إشعار تقييم",   text: "تم إجراء التقييم الفني الدوري للاعبين. يمكنكم الاطلاع على النتائج من لوحة التحكم الخاصة بكم." },
-    { label: "إلغاء تدريب",   text: "نعتذر عن تأجيل جلسة التدريب المقررة لأسباب طارئة. سيتم إبلاغكم بالموعد البديل قريباً." },
-    { label: "دعوة اجتماع",   text: "يسعدنا دعوتكم لحضور اجتماع أولياء الأمور المقرر خلال الأسبوع القادم. تفاصيل الموعد ستُرسل لاحقاً." },
-    { label: "تهنئة إنجاز",   text: "ألف مبروك على الإنجاز المتميز! نادي نجد يفخر بكم ويتمنى لكم المزيد من التقدم والنجاح." },
-  ],
-  coach: [
-    { label: "تقرير أداء",     text: "السلام عليكم، أودّ إطلاعكم على أداء نجلكم خلال الجلسات الأخيرة. هناك تحسن ملحوظ في مستوى التقنية والانتظام." },
-    { label: "تذكير حضور",    text: "أودّ التنبيه بأن نجلكم يسجّل غياباً متكرراً عن جلسات التدريب. يرجى التواصل معي لمعالجة الأمر." },
-    { label: "طلب متابعة",    text: "أرجو متابعة التمارين المنزلية التي وزّعتها في الجلسة الأخيرة، فهي أساسية لتطوير أداء اللاعب." },
-    { label: "دعوة لاجتماع",  text: "أودّ تحديد موعد لمناقشة تقدم نجلكم ووضع خطة تطوير مناسبة. يرجى التواصل معي لتحديد الوقت المناسب." },
-    { label: "تقرير للإدارة",  text: "تقرير دوري: جميع جلسات هذا الأسبوع سارت بشكل جيد. الحضور منتظم ومستوى التطور إيجابي." },
-    { label: "تعديل جدول",    text: "تنبيه: سيطرأ تعديل على جدول التدريب هذا الأسبوع. يرجى متابعة التطبيق للاطلاع على التفاصيل." },
-  ],
-  parent: [
-    { label: "استفسار أداء",   text: "السلام عليكم، أودّ الاستفسار عن مستوى أداء نجلي في جلسات التدريب الأخيرة وأي توصيات لدعمه في المنزل." },
-    { label: "إشعار غياب",    text: "أودّ إعلامكم بأن نجلي لن يتمكن من حضور جلسة التدريب القادمة بسبب ظرف طارئ. نعتذر عن الإزعاج." },
-    { label: "شكر وتقدير",    text: "جزاكم الله خيراً على جهودكم المتميزة مع أبنائنا. نلاحظ تطوراً ملحوظاً في أداء نجلنا." },
-    { label: "سؤال عن الرسوم", text: "أودّ الاستفسار عن تفاصيل الرسوم الشهرية وطريقة السداد المتاحة." },
-    { label: "طلب تقرير",     text: "هل يمكن الحصول على تقرير تفصيلي عن مستوى نجلي ونقاط القوة والضعف لديه؟" },
-  ],
-};
+const QUICK_TEMPLATES = [
+  { label: "ترحيب", text: "أهلاً بك في نادي نجد الرياضي. يسعدنا انضمامكم إلينا." },
+  { label: "تذكير سداد", text: "نحيطكم علماً بضرورة سداد الرسوم الشهرية لضمان استمرارية التدريب." },
+  { label: "تأجيل تدريب", text: "نعتذر عن إلغاء تدريب اليوم لظروف طارئة، وسيتم التعويض في وقت لاحق." },
+  { label: "تقييم جديد", text: "تم تحديث التقييم الفني للاعب، يرجى الاطلاع عليه من لوحة التحكم." },
+];
 
-function Messaging({ messages, setMessages, meId, meName, coaches, parents, players, t, role, myGroupId, myPlayerIds, myCoachIds }) {
+function Messaging({ messages, setMessages, meId, meName, coaches, parents, t, role, myGroupId, myPlayerIds }) {
   const [compose, setCompose] = useState(false);
   const [form, setForm] = useState({ to: [], text: "", files: [] });
   const [filterType, setFilterType] = useState("all");
-  const [chatWith, setChatWith] = useState(null);
-  const [replyText, setReplyText] = useState("");
-  const chatEndRef = useRef(null);
-  const templates = ROLE_TEMPLATES[role] || ROLE_TEMPLATES.admin;
-
-  useEffect(() => {
-    if (chatWith && chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: "smooth" });
-  }, [chatWith, messages.length]);
-
-  const mine = messages.filter(m => m.from === meId || m.to === meId);
+  
+  const mine = messages.filter(m => m.from === meId || m.to === meId).slice().reverse();
   const markRead = id => setMessages(ms => ms.map(m => m.id === id ? { ...m, read: true } : m));
-
-  const buildMsg = (targetId, txt) => {
-    let targetName = "";
-    if (String(targetId) === "admin") targetName = "الإدارة";
-    else {
-      const c = (coaches||[]).find(x => String(x.id) === String(targetId));
-      const p = (parents||[]).find(x => String(x.id) === String(targetId));
-      targetName = c?.name || p?.name || "مستخدم";
-    }
-    return { id: `msg${Date.now()}-${Math.random().toString(36).slice(2)}`, from: meId, fromName: meName, to: targetId, toName: targetName, text: txt, files: [], date: new Date().toISOString().split("T")[0], read: false };
-  };
-
-  const apiSend = msg => {
-    if (!API_URL) return;
-    fetch(`${API_URL}/api/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(msg) }).catch(console.error);
-  };
 
   const send = () => {
     if (!form.to.length || !form.text.trim()) return;
-    const newMsgs = form.to.map(tid => buildMsg(tid, form.text));
-    newMsgs.forEach(apiSend);
+    
+    const newMsgs = form.to.map(targetId => {
+      let targetName = "";
+      if (targetId === "admin") targetName = "الإدارة";
+      else {
+        const c = coaches.find(x => x.id === targetId);
+        const p = parents.find(x => x.id === targetId);
+        targetName = c?.name || p?.name || "مستخدم";
+      }
+
+      return {
+        id: `msg${Date.now()}-${targetId}`,
+        from: meId,
+        fromName: meName,
+        to: targetId,
+        toName: targetName,
+        text: form.text,
+        files: form.files,
+        date: new Date().toISOString().split("T")[0],
+        read: false
+      };
+    });
+
+    if (API_URL) {
+      newMsgs.forEach(m => {
+        fetch(`${API_URL}/api/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(m)
+        }).catch(console.error);
+      });
+    }
+
     setMessages(ms => [...ms, ...newMsgs]);
-    setForm(f => ({ ...f, text: "", files: [], to: [] }));
+    setForm({ to: [], text: "", files: [] });
     setCompose(false);
+    alert("تم إرسال الرسائل بنجاح");
   };
 
-  const sendReply = () => {
-    if (!chatWith || !replyText.trim()) return;
-    const msg = buildMsg(chatWith.id, replyText);
-    msg.toName = chatWith.name;
-    apiSend(msg);
-    setMessages(ms => [...ms, msg]);
-    setReplyText("");
-  };
-
-  // Contact list (role-filtered)
-  const uniqueParents = [];
-  const pSet = new Set();
-  (parents||[]).forEach(p => { if (p?.id && !pSet.has(String(p.id))) { uniqueParents.push(p); pSet.add(String(p.id)); } });
-  let allContacts = [
+  // Role-based Contact Filtering
+  let filteredContacts = [
     { id: "admin", name: "الإدارة", type: "admin" },
-    ...(coaches||[]).map(c => ({ id: c.id, name: c.name, type: "coach" })),
-    ...uniqueParents.map(p => ({ id: p.id, name: p.name, type: "parent" })),
-  ].filter(c => String(c.id) !== String(meId));
+    ...coaches.map(c => ({ id: c.id, name: c.name, type: "coach", groupId: c.groupId })),
+    ...parents.map(p => ({ id: p.id, name: p.name, type: "parent" })),
+  ].filter(c => c.id !== meId);
+
   if (role === "parent") {
-    const cIds = (myCoachIds||[]).map(String);
-    allContacts = allContacts.filter(c => c.type === "admin" || (c.type === "coach" && cIds.includes(String(c.id))));
+    // Parent can only message Admin and their child's Coach
+    const safeCoachIds = myCoachIds || [];
+    filteredContacts = filteredContacts.filter(c => c.type === "admin" || (c.type === "coach" && safeCoachIds.includes(c.id)));
   } else if (role === "coach") {
-    const gPids = (players||[]).filter(p => p && String(p.groupId) === String(myGroupId)).map(p => String(p.parentId));
-    allContacts = allContacts.filter(c => c.type === "admin" || (c.type === "parent" && gPids.includes(String(c.id))));
+    // Coach can message Admin and Parents in their group
+    // Find all parents of players in my group
+    const myGroupPlayerIds = players.filter(p => p.groupId === myGroupId).map(p => p.parentId);
+    filteredContacts = filteredContacts.filter(c => c.type === "admin" || (c.type === "parent" && myGroupPlayerIds.includes(c.id)));
   }
 
-  const toggleRecipient = id => setForm(f => ({ ...f, to: f.to.includes(id) ? f.to.filter(x => x !== id) : [...f.to, id] }));
-  const selectGroup = type => setForm(f => ({ ...f, to: allContacts.filter(c => type === "all" || c.type === type).map(c => c.id) }));
+  const allContacts = filteredContacts;
 
-  const threadMsgs = chatWith
-    ? messages.filter(m => (m.from === meId && m.to === chatWith.id) || (m.from === chatWith.id && m.to === meId)).sort((a,b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
-    : [];
+  const toggleRecipient = (id) => {
+    setForm(f => {
+      const isSelected = f.to.includes(id);
+      return { ...f, to: isSelected ? f.to.filter(x => x !== id) : [...f.to, id] };
+    });
+  };
 
-  const convMap = {};
-  mine.forEach(m => {
-    const pid = m.from === meId ? m.to : m.from;
-    const pn  = m.from === meId ? m.toName : m.fromName;
-    if (!convMap[pid]) convMap[pid] = { id: pid, name: pn, msgs: [], unread: 0 };
-    convMap[pid].msgs.push(m);
-    if (m.to === meId && !m.read) convMap[pid].unread++;
-  });
-  const conversations = Object.values(convMap).sort((a,b) => (b.msgs.at(-1)?.id||"").localeCompare(a.msgs.at(-1)?.id||""));
+  const selectGroup = (type) => {
+    const ids = allContacts.filter(c => type === "all" || c.type === type).map(c => c.id);
+    setForm(f => ({ ...f, to: ids }));
+  };
 
-  // ── CHAT THREAD ─────────────────────────────────────────────
-  if (chatWith) {
-    threadMsgs.filter(m => m.to === meId && !m.read).forEach(m => markRead(m.id));
-    return (
-      <div style={{ display:"flex", flexDirection:"column", height:"calc(100vh - 160px)", minHeight:500, borderRadius:18, overflow:"hidden", border:`1px solid ${t.border}` }}>
-        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 20px", background:t.bg2, flexShrink:0 }}>
-          <button onClick={() => setChatWith(null)} style={{ background:"none", border:"none", color:t.textDim, cursor:"pointer", fontSize:20, padding:"2px 8px" }}>←</button>
-          <Avatar name={chatWith.name} size={40} color="#7C49A8"/>
-          <div>
-            <div style={{ fontWeight:800, fontSize:14, color:t.text }}>{chatWith.name}</div>
-            <div style={{ fontSize:11, color:t.textDim }}>{threadMsgs.length} رسالة</div>
-          </div>
-        </div>
-        <div style={{ flex:1, overflowY:"auto", padding:"20px 16px", background:t.name==="dark"?"#06051A":"#F7F5FF", display:"flex", flexDirection:"column", gap:14 }}>
-          {threadMsgs.length===0 && <div style={{ textAlign:"center", color:t.textFaint, padding:"60px 0" }}><div style={{ fontSize:38, marginBottom:10 }}>💬</div><div>ابدأ محادثة مع {chatWith.name}</div></div>}
-          {threadMsgs.map(m => {
-            const isMe = m.from === meId;
-            return (
-              <div key={m.id} style={{ display:"flex", flexDirection:isMe?"row-reverse":"row", gap:10, alignItems:"flex-end" }}>
-                <Avatar name={isMe ? meName : m.fromName} size={28} color={isMe?"#10B981":"#7C49A8"}/>
-                <div style={{ maxWidth:"72%", background:isMe?"linear-gradient(135deg,#7C49A8,#5A2D82)":t.bg2, color:isMe?"#fff":t.text, padding:"12px 16px", borderRadius:isMe?"18px 4px 18px 18px":"4px 18px 18px 18px", fontSize:13, lineHeight:1.6, boxShadow:isMe?"0 4px 14px rgba(124,73,168,.3)":"none", border:isMe?"none":`1px solid ${t.border}` }}>
-                  {m.text}
-                  <div style={{ fontSize:9, opacity:.55, marginTop:5, textAlign:isMe?"left":"right" }}>{m.date}</div>
-                </div>
-              </div>
-            );
-          })}
-          <div ref={chatEndRef}/>
-        </div>
-        <div style={{ padding:"8px 14px", background:t.bg2, borderTop:`1px solid ${t.border}`, display:"flex", gap:6, overflowX:"auto", flexShrink:0 }}>
-          {templates.slice(0,3).map((tp,i) => (
-            <button key={i} onClick={() => setReplyText(tp.text)} style={{ whiteSpace:"nowrap", padding:"5px 12px", borderRadius:20, border:`1px solid ${t.border}`, background:"transparent", color:t.textDim, fontSize:11, cursor:"pointer" }}>⚡ {tp.label}</button>
-          ))}
-        </div>
-        <div style={{ display:"flex", gap:10, padding:"12px 14px", background:t.bg2, borderTop:`1px solid ${t.border}`, flexShrink:0 }}>
-          <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
-            onKeyDown={e => { if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendReply(); } }}
-            rows={2} placeholder={`رد على ${chatWith.name}...`}
-            style={{ flex:1, background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:12, padding:"10px 14px", color:t.text, fontSize:13, resize:"none", outline:"none", fontFamily:"'Cairo',sans-serif" }}/>
-          <button onClick={sendReply} style={{ width:44, height:44, borderRadius:12, background:"linear-gradient(135deg,#7C49A8,#5A2D82)", border:"none", color:"#fff", cursor:"pointer", fontSize:20, display:"grid", placeItems:"center", alignSelf:"flex-end" }}>↑</button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── INBOX ────────────────────────────────────────────────────
   return (
     <div>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-        <div style={{ fontSize:12, color:t.textDim }}>{conversations.length} محادثة</div>
-        <Btn onClick={() => setCompose(true)} style={{ padding:"10px 22px", borderRadius:12 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}><span style={{ animation:"spin 3s linear infinite", display:"inline-block" }}>✉️</span><span>رسالة جديدة</span></div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: t.textDim }}>{mine.length} رسالة</div>
+        <Btn onClick={() => setCompose(true)} style={{ padding: "10px 22px", borderRadius: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ animation: "spin 3s linear infinite", display: "inline-block" }}>✉️</span>
+            <span>رسالة احترافية جديدة</span>
+          </div>
         </Btn>
       </div>
-      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-        {conversations.map((conv,i) => {
-          const last = conv.msgs.at(-1);
-          const isLastMe = last?.from === meId;
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {mine.map((m, i) => {
+          const isMe  = m.from === meId;
+          const unread = m.to === meId && !m.read;
           return (
-            <div key={conv.id} onClick={() => setChatWith({ id:conv.id, name:conv.name })}
-              style={{ display:"flex", alignItems:"center", gap:14, background:conv.unread>0?(t.name==="dark"?"linear-gradient(135deg,#13111F,#0A0815)":"#F5F0FF"):t.bg2, border:`1px solid ${conv.unread>0?"rgba(124,73,168,.4)":t.border}`, borderRadius:16, padding:"16px 20px", cursor:"pointer", transition:"all .2s", animation:`fadeUp .3s ${i*.04}s ease both` }}
-              onMouseEnter={e => e.currentTarget.style.borderColor="#7C49A8"} onMouseLeave={e => e.currentTarget.style.borderColor=conv.unread>0?"rgba(124,73,168,.4)":t.border}>
-              <div style={{ position:"relative" }}>
-                <Avatar name={conv.name} size={44} color={conv.id==="admin"?"#7C49A8":"#06B6D4"}/>
-                {conv.unread>0 && <div style={{ position:"absolute", top:-3, left:-3, width:18, height:18, borderRadius:"50%", background:"#EF4444", color:"#fff", fontSize:10, fontWeight:900, display:"grid", placeItems:"center" }}>{conv.unread}</div>}
-              </div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                  <div style={{ fontWeight:800, fontSize:13, color:t.text }}>{conv.name}</div>
-                  <div style={{ fontSize:10, color:t.textFaint }}>{last?.date}</div>
+            <div key={m.id} onClick={() => unread && markRead(m.id)}
+              style={{ background: unread ? t.name === "dark" ? "linear-gradient(135deg,#13111F,#0A0815)" : "#F5F0FF" : t.bg2, border: `1px solid ${unread ? "rgba(124,73,168,.4)" : t.border}`, borderRadius: 18, padding: "18px 22px", cursor: unread ? "pointer" : "default", transition: "all .2s", animation: `fadeUp .4s ${i * .05}s ease both`, boxShadow: unread ? "0 10px 25px rgba(124,73,168,.1)" : "none" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Avatar name={isMe ? m.toName : m.fromName} size={36} color={isMe ? "#10B981" : "#7C49A8"}/>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: isMe ? t.textDim : t.text }}>{isMe ? `إلى: ${m.toName}` : `من: ${m.fromName}`}</div>
+                    <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>{m.date}</div>
+                  </div>
                 </div>
-                <div style={{ fontSize:12, color:conv.unread>0?t.textMid:t.textDim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                  {isLastMe?"أنت: ":""}{last?.text}
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {isMe && <Chip text="مُرسلة" color={t.textFaint} size={10}/>}
+                  {unread && <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#7C49A8", animation: "pulse 2s infinite" }}/>}
                 </div>
               </div>
-              <div style={{ color:t.textFaint, fontSize:20 }}>›</div>
+              <div style={{ fontSize: 14, color: t.textMid, lineHeight: 1.8, background: t.bg, borderRadius: 12, padding: "14px 18px", border: `1px solid ${t.border}` }}>
+                {m.text}
+                {m.files?.length > 0 && (
+                  <div style={{ marginTop: 12, borderTop: `1px solid ${t.border}`, paddingTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {m.files.map((f, fi) => (
+                      <div key={fi} style={{ background: t.bg2, padding: "6px 12px", borderRadius: 8, fontSize: 11, border: `1px solid ${t.border}`, display: "flex", alignItems: "center", gap: 6 }}>
+                        📎 {f.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
-        {conversations.length===0 && <div style={{ padding:80, textAlign:"center", color:t.textFaint }}><div style={{ fontSize:40, marginBottom:15, animation:"float 3s infinite" }}>📨</div><div>صندوق الوارد فارغ حالياً</div></div>}
+        {mine.length === 0 && (
+          <div style={{ padding: 80, textAlign: "center", color: t.textFaint }}>
+            <div style={{ fontSize: 40, marginBottom: 15, animation: "float 3s infinite" }}>📨</div>
+            <div>صندوق الوارد فارغ حالياً</div>
+          </div>
+        )}
       </div>
 
       {compose && (
-        <Modal title="✉️ رسالة جديدة" onClose={() => setCompose(false)} wide t={t}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 270px", gap:20 }}>
+        <Modal title="✉️ إنشاء رسالة ذكية" onClose={() => setCompose(false)} wide t={t}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 20 }}>
             <div>
-              <div style={{ marginBottom:16 }}>
-                <label style={{ fontSize:12, color:t.textDim, fontWeight:700, display:"block", marginBottom:10 }}>المستلمون ({form.to.length})</label>
-                <div style={{ display:"flex", background:t.bg, borderRadius:10, padding:4, marginBottom:10, border:`1px solid ${t.border}` }}>
-                  {["all","coach","parent"].map(f => (
-                    <button key={f} onClick={() => setFilterType(f)} style={{ flex:1, padding:"8px", borderRadius:8, border:"none", background:filterType===f?"#7C49A8":"transparent", color:filterType===f?"#fff":t.textDim, fontSize:11, cursor:"pointer", fontWeight:700 }}>
-                      {f==="all"?"الكل":f==="coach"?"المدربون":"أولياء الأمور"}
-                    </button>
-                  ))}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, color: t.textDim, fontWeight: 700, display: "block", marginBottom: 10 }}>المستلمون ({form.to.length})</label>
+                
+                {/* Section Filters */}
+                <div style={{ display: "flex", background: t.bg, borderRadius: 10, padding: 4, marginBottom: 12, border: `1px solid ${t.border}` }}>
+                  <button onClick={() => setFilterType("all")} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", background: filterType === "all" ? "#7C49A8" : "transparent", color: filterType === "all" ? "#fff" : t.textDim, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>الكل</button>
+                  <button onClick={() => setFilterType("coach")} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", background: filterType === "coach" ? "#06B6D4" : "transparent", color: filterType === "coach" ? "#fff" : t.textDim, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>المدربين</button>
+                  <button onClick={() => setFilterType("parent")} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", background: filterType === "parent" ? "#10B981" : "transparent", color: filterType === "parent" ? "#fff" : t.textDim, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>أولياء الأمور</button>
                 </div>
-                <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-                  <button onClick={() => selectGroup(filterType)} style={{ padding:"5px 12px", borderRadius:8, border:"1px solid #7C49A8", background:"transparent", color:t.text, fontSize:10, cursor:"pointer" }}>تحديد الكل</button>
-                  <button onClick={() => setForm(f => ({...f, to:[]}))} style={{ padding:"5px 12px", borderRadius:8, border:`1px solid ${t.border}`, background:"transparent", color:t.textDim, fontSize:10, cursor:"pointer" }}>إلغاء</button>
+
+                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                  <button onClick={() => selectGroup(filterType)} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${filterType === 'all' ? '#7C49A8' : filterType === 'coach' ? '#06B6D4' : '#10B981'}`, background: "transparent", color: t.text, fontSize: 10, cursor: "pointer", fontWeight: 600 }}>تحديد كل {filterType === "all" ? "القائمة" : filterType === "coach" ? "المدربين" : "أولياء الأمور"}</button>
+                  <button onClick={() => setForm(f => ({ ...f, to: [] }))} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${t.border}`, background: "transparent", color: t.textDim, fontSize: 10, cursor: "pointer" }}>إلغاء التحديد</button>
                 </div>
-                <div style={{ maxHeight:160, overflowY:"auto", background:t.inputBg, borderRadius:12, padding:10, border:`1px solid ${t.border}` }}>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
-                    {allContacts.filter(c => filterType==="all" || c.type===filterType).map(c => (
-                      <div key={c.id} onClick={() => toggleRecipient(c.id)} style={{ padding:"8px 10px", borderRadius:8, background:form.to.includes(c.id)?"rgba(124,73,168,.12)":"transparent", border:`1px solid ${form.to.includes(c.id)?"#7C49A8":"transparent"}`, cursor:"pointer", display:"flex", alignItems:"center", gap:8, fontSize:12 }}>
-                        <div style={{ width:16, height:16, borderRadius:4, border:`1px solid ${form.to.includes(c.id)?"#7C49A8":t.border}`, display:"grid", placeItems:"center" }}>
-                          {form.to.includes(c.id) && <div style={{ width:8, height:8, borderRadius:2, background:"#7C49A8" }}/>}
+
+                <div style={{ maxHeight: 180, overflowY: "auto", background: t.inputBg, borderRadius: 12, padding: 10, border: `1px solid ${t.border}` }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                    {allContacts.filter(c => filterType === "all" || c.type === filterType).map(c => (
+                      <div key={c.id} onClick={() => toggleRecipient(c.id)} style={{ padding: "8px 10px", borderRadius: 8, background: form.to.includes(c.id) ? "rgba(124,73,168,.12)" : "transparent", border: `1px solid ${form.to.includes(c.id) ? "#7C49A8" : "transparent"}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${form.to.includes(c.id) ? "#7C49A8" : t.border}`, display: "grid", placeItems: "center" }}>
+                          {form.to.includes(c.id) && <div style={{ width: 8, height: 8, borderRadius: 2, background: "#7C49A8" }}/>}
                         </div>
-                        <span style={{ color:form.to.includes(c.id)?t.text:t.textDim }}>{c.name}</span>
+                        <span style={{ color: form.to.includes(c.id) ? t.text : t.textDim }}>{c.name}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
-              <div style={{ marginBottom:14 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
-                  <label style={{ fontSize:12, color:t.textDim, fontWeight:700 }}>نص الرسالة</label>
-                  <div style={{ fontSize:10, color:t.textFaint }}>{form.text.length}/500</div>
+
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                  <label style={{ fontSize: 12, color: t.textDim, fontWeight: 700 }}>نص الرسالة</label>
+                  <div style={{ fontSize: 10, color: t.textFaint }}>{form.text.length}/500</div>
                 </div>
-                <textarea value={form.text} onChange={e => setForm(f => ({...f, text:e.target.value}))} rows={5} placeholder="اكتب رسالتك هنا..."
-                  style={{ width:"100%", background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:14, padding:"14px 16px", color:t.text, fontSize:14, resize:"none", outline:"none", fontFamily:"'Cairo',sans-serif", lineHeight:1.6 }}/>
+                <textarea value={form.text} onChange={e => setForm(f => ({ ...f, text: e.target.value }))} rows={5} placeholder="اكتب رسالتك هنا..."
+                  style={{ width: "100%", background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 14, padding: "14px 16px", color: t.text, fontSize: 14, resize: "none", outline: "none", fontFamily: "'Cairo',sans-serif", lineHeight: 1.6 }}/>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ fontSize: 12, color: t.textDim, fontWeight: 700, display: "block", marginBottom: 10 }}>المرفقات 📎</label>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {form.files.map((f, idx) => (
+                    <div key={idx} style={{ background: "rgba(124,73,168,.1)", padding: "8px 12px", borderRadius: 10, fontSize: 11, display: "flex", alignItems: "center", gap: 10 }}>
+                      <span>📄 {f.name}</span>
+                      <button onClick={() => setForm(f => ({ ...f, files: f.files.filter((_, i) => i !== idx) }))} style={{ border: "none", background: "none", color: "#EF4444", cursor: "pointer", fontWeight: 900 }}>✕</button>
+                    </div>
+                  ))}
+                  <label style={{ width: 40, height: 40, borderRadius: 10, background: t.bg2, border: `2px dashed ${t.border}`, display: "grid", placeItems: "center", cursor: "pointer", fontSize: 18 }}>
+                    +
+                    <input type="file" multiple style={{ display: "none" }} onChange={e => {
+                      const newFiles = Array.from(e.target.files).map(f => ({ name: f.name, size: f.size }));
+                      setForm(f => ({ ...f, files: [...f.files, ...newFiles] }));
+                    }} />
+                  </label>
+                </div>
               </div>
             </div>
-            <div style={{ borderRight:`1px solid ${t.border}`, paddingRight:20 }}>
-              <div style={{ fontWeight:800, fontSize:13, color:"#7C49A8", marginBottom:12, display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ animation:"pulse 2s infinite" }}>⚡</span> رسائل جاهزة
+
+            <div style={{ borderRight: `1px solid ${t.border}`, paddingRight: 20 }}>
+              <div style={{ fontWeight: 800, fontSize: 13, color: "#7C49A8", marginBottom: 15, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ animation: "pulse 2s infinite" }}>⚡</span> رسائل جاهزة
               </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                {templates.map((tp,i) => (
-                  <button key={i} onClick={() => setForm(f => ({...f, text:tp.text}))}
-                    style={{ textAlign:"right", padding:"10px 12px", borderRadius:12, background:t.bg2, border:`1px solid ${t.border}`, color:t.textMid, fontSize:11, cursor:"pointer", transition:"all .2s" }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor="#7C49A8"} onMouseLeave={e => e.currentTarget.style.borderColor=t.border}>
-                    <div style={{ fontWeight:800, marginBottom:3, color:"#7C49A8", fontSize:11 }}>{tp.label}</div>
-                    <div style={{ opacity:.6, fontSize:10, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{tp.text}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {QUICK_TEMPLATES.map((tmp, idx) => (
+                  <button key={idx} onClick={() => setForm(f => ({ ...f, text: tmp.text }))}
+                    style={{ textAlign: "right", padding: "12px 14px", borderRadius: 12, background: t.bg2, border: `1px solid ${t.border}`, color: t.textMid, fontSize: 11, cursor: "pointer", transition: "all .2s" }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = "#7C49A8"} onMouseLeave={e => e.currentTarget.style.borderColor = t.border}>
+                    <div style={{ fontWeight: 800, marginBottom: 4, color: "#7C49A8" }}>{tmp.label}</div>
+                    <div style={{ opacity: .7, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tmp.text}</div>
                   </button>
                 ))}
               </div>
+              <div style={{ marginTop: 25, background: "linear-gradient(135deg,rgba(216,164,53,.1),transparent)", padding: 15, borderRadius: 14, border: "1px solid rgba(216,164,53,.2)" }}>
+                <div style={{ fontSize: 11, color: "#D8A435", fontWeight: 800, marginBottom: 6 }}>💡 نصيحة الإدارة</div>
+                <div style={{ fontSize: 10, color: t.textDim, lineHeight: 1.6 }}>استخدام الرسائل الجاهزة يوفر الوقت ويضمن وصول المعلومة بشكل موحد ومهني.</div>
+              </div>
             </div>
           </div>
-          <div style={{ display:"flex", gap:12, marginTop:14 }}>
-            <Btn onClick={send} style={{ flex:1, height:48, fontSize:15 }}>إرسال الرسالة 🚀</Btn>
-            <Btn variant="secondary" onClick={() => setCompose(false)} style={{ height:48 }}>إلغاء</Btn>
+
+          <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
+            <Btn onClick={send} style={{ flex: 1, height: 48, fontSize: 15 }}>إرسال الرسالة الآن 🚀</Btn>
+            <Btn variant="secondary" onClick={() => setCompose(false)} style={{ height: 48 }}>إلغاء</Btn>
           </div>
         </Modal>
       )}
